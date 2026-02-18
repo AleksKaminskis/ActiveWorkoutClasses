@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="ActiveWorkoutClasses.ApiService/ActiveWorkoutClasses.ApiService.csproj" />
+  <Project Path="ActiveWorkoutClasses.AppHost/ActiveWorkoutClasses.AppHost.csproj" />
+  <Project Path="ActiveWorkoutClasses.Application/ActiveWorkoutClasses.Application.csproj" />
+  <Project Path="ActiveWorkoutClasses.Domain/ActiveWorkoutClasses.Domain.csproj" />
+  <Project Path="ActiveWorkoutClasses.Infrastructure/ActiveWorkoutClasses.Infrastructure.csproj" />
+  <Project Path="ActiveWorkoutClasses.ServiceDefaults/ActiveWorkoutClasses.ServiceDefaults.csproj" />
+  <Project Path="ActiveWorkoutClasses.Shared/ActiveWorkoutClasses.Shared.csproj" />
+  <Project Path="ActiveWorkoutClasses.Web/ActiveWorkoutClasses.Web.csproj" />
+</Solution>

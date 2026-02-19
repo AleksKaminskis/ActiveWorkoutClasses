@@ -22,12 +22,32 @@ if (builder.Environment.IsDevelopment())
     // For development, use In-Memory database
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.UseInMemoryDatabase("ActiveWorkoutClassesDb"));
+
+    Console.WriteLine("[!] Using In-Memory Database");
 }
 else
 {
+    if (string.IsNullOrEmpty(connectionString))
+        throw new InvalidOperationException("SQL connection string is missing in Production.");
+
     // For production, use SQL Server (Azure SQL Database)
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseSqlServer(connectionString));
+        options.UseSqlServer(connectionString, sqlOptions =>
+        {
+            sqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(30),
+                errorNumbersToAdd: null);
+            sqlOptions.CommandTimeout(60);
+        }));
+}
+
+// Test the database connection in production
+
+if (builder.Environment.IsProduction())
+{
+    Console.WriteLine("Running in PRODUCTION");
+    Console.WriteLine($"Using SQL Server: {!string.IsNullOrEmpty(connectionString)}");
 }
 
 // Configure CORS for Blazor app

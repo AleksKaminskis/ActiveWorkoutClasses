@@ -1,20 +1,51 @@
+# =========================
 # Visual Studio
+# =========================
 .vs/
-bin/
-obj/
-
-# User-specific files
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
 
+# =========================
 # Build results
+# =========================
+bin/
+obj/
+out/
+
+# =========================
+# .NET Core
+# =========================
 *.dll
 *.exe
+*.pdb
 
-# Rider
-.idea/
+# =========================
+# Blazor / WebAssembly
+# =========================
+wwwroot/dist/
+wwwroot/service-worker.js
+wwwroot/service-worker.published.js
 
+# =========================
+# Node / npm (if used)
+# =========================
+node_modules/
+
+# =========================
 # Logs
+# =========================
 *.log
+
+# =========================
+# OS files
+# =========================
+Thumbs.db
+.DS_Store
+
+# =========================
+# Environment files
+# =========================
+appsettings.Development.json
+.env

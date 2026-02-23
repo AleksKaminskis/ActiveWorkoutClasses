@@ -8,16 +8,16 @@
         /// <summary>
         /// Student - can view and register for classes, check-in
         /// </summary>
-        Student,
+        Student = 1,
 
         /// <summary>
         /// Instructor - can view their classes and mark attendance
         /// </summary>
-        Instructor,
+        Instructor = 2,
 
         /// <summary>
         /// Admin - full system access, can manage classes and users
         /// </summary>
-        Admin
+        Admin = 3
     }
 }

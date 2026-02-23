@@ -5,7 +5,7 @@
     /// </summary>
     public enum CheckInMethod
     {
-        SelfCheckIn,
-        InstructorCheckIn
+        SelfCheckIn = 1,
+        InstructorCheckIn = 2
     }
 }

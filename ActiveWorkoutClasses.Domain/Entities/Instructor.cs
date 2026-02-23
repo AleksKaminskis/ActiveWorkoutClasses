@@ -1,21 +1,25 @@
-﻿namespace ActiveWorkoutClasses.Domain.Entities
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace ActiveWorkoutClasses.Domain.Entities
 {
     public class Instructor : User
     {
         /// <summary>
         /// Primary area of expertise (e.g., "Krav Maga & Self-Defense")
         /// </summary>
+        [Required]
         public string Specialization { get; set; } = string.Empty;
 
         /// <summary>
         /// Instructor biography for student-facing profiles
         /// </summary>
+        [StringLength(1500)]
         public string Bio { get; set; } = string.Empty;
 
         /// <summary>
         /// Years of teaching/training experience
         /// </summary>
-        public int YearsOfExperience { get; set; }
+        public int? YearsOfExperience { get; set; }
 
         /// <summary>
         /// Professional certifications (comma-separated or JSON)

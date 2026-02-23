@@ -1,4 +1,5 @@
 ﻿using ActiveWorkoutClasses.Domain.Enums;
+using System.ComponentModel.DataAnnotations;
 
 namespace ActiveWorkoutClasses.Domain.Entities
 {
@@ -7,6 +8,7 @@ namespace ActiveWorkoutClasses.Domain.Entities
         /// <summary>
         /// Unique identifier for this registration
         /// </summary>
+        [Key]
         public Guid Id { get; set; }
 
         /// <summary>

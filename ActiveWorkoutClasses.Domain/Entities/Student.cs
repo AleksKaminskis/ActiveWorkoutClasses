@@ -1,4 +1,5 @@
-﻿
+﻿using System.ComponentModel.DataAnnotations;
+
 namespace ActiveWorkoutClasses.Domain.Entities
 {
     public class Student : User
@@ -16,11 +17,14 @@ namespace ActiveWorkoutClasses.Domain.Entities
         /// <summary>
         /// Emergency contact information
         /// </summary>
+        [Required(ErrorMessage = "Emergency contact is required for students")]
+        [StringLength(200, MinimumLength = 5, ErrorMessage = "Emergency contact must be between 5 and 200 characters")]
         public string EmergencyContact { get; set; } = string.Empty;
 
         /// <summary>
         /// Any medical conditions or notes the studio should be aware of
         /// </summary>
+        [StringLength(1000, ErrorMessage = "Medical notes cannot exceed 1000 characters")]
         public string? MedicalNotes { get; set; }
 
         /// <summary>

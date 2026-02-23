@@ -1,7 +1,6 @@
 using ActiveWorkoutClasses.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Identity.Web;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,8 +8,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 
 // Add services to the container.
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+    });
 builder.Services.AddProblemDetails();
-builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -22,7 +26,6 @@ if (builder.Environment.IsDevelopment())
     // For development, use In-Memory database
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.UseInMemoryDatabase("ActiveWorkoutClassesDb"));
-
     Console.WriteLine("[!] Using In-Memory Database");
 }
 else
@@ -65,21 +68,44 @@ builder.Services.AddCors(options =>
     });
 });
 
-
 var app = builder.Build();
+
+// Seed Database in Development
+if (app.Environment.IsDevelopment())
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+        try
+        {
+            var context = services.GetRequiredService<ApplicationDbContext>();
+
+            // Apply any pending migrations
+            Console.WriteLine("[i] Ensuring database is created...");
+            await context.Database.EnsureCreatedAsync();
+
+            // Seed test data
+            Console.WriteLine("[i] Seeding database...");
+            await DbSeeder.SeedAsync(context);
+            Console.WriteLine("[+] Database ready!");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[X] Error seeding database: {ex.Message}");
+            // Don't crash the app, just log the error
+        }
+    }
+}
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
-
-    // Seed database in development
-    using (var scope = app.Services.CreateScope())
+    app.UseSwaggerUI(c =>
     {
-        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        // TODO: Add seed data
-    }
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Active Workout Classes API v1");
+        c.RoutePrefix = string.Empty; // Swagger UI at root URL
+    });
 }
 
 app.UseHttpsRedirection();

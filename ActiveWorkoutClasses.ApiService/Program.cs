@@ -1,3 +1,5 @@
+using ActiveWorkoutClasses.Application.Interfaces;
+using ActiveWorkoutClasses.Application.Services;
 using ActiveWorkoutClasses.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,6 +16,13 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
+
+// Register Application Services
+builder.Services.AddScoped<IWorkoutClassService, WorkoutClassService>();
+builder.Services.AddScoped<IRegistrationService, RegistrationService>();
+builder.Services.AddScoped<IAttendanceService, AttendanceService>();
+builder.Services.AddScoped<IUserService, UserService>();
+
 builder.Services.AddProblemDetails();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

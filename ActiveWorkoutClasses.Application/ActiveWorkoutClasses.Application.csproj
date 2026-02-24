@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ActiveWorkoutClasses.Domain\ActiveWorkoutClasses.Domain.csproj" />
+	  <ProjectReference Include="..\ActiveWorkoutClasses.Infrastructure\ActiveWorkoutClasses.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

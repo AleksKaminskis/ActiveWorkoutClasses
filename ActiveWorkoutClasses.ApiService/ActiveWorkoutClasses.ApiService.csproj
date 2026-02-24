@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ActiveWorkoutClasses.Application\ActiveWorkoutClasses.Application.csproj" />
+    <ProjectReference Include="..\ActiveWorkoutClasses.Domain\ActiveWorkoutClasses.Domain.csproj" />
     <ProjectReference Include="..\ActiveWorkoutClasses.Infrastructure\ActiveWorkoutClasses.Infrastructure.csproj" />
     <ProjectReference Include="..\ActiveWorkoutClasses.ServiceDefaults\ActiveWorkoutClasses.ServiceDefaults.csproj" />
     <ProjectReference Include="..\ActiveWorkoutClasses.Shared\ActiveWorkoutClasses.Shared.csproj" />

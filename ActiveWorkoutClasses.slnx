@@ -5,6 +5,5 @@
   <Project Path="ActiveWorkoutClasses.Domain/ActiveWorkoutClasses.Domain.csproj" />
   <Project Path="ActiveWorkoutClasses.Infrastructure/ActiveWorkoutClasses.Infrastructure.csproj" />
   <Project Path="ActiveWorkoutClasses.ServiceDefaults/ActiveWorkoutClasses.ServiceDefaults.csproj" />
-  <Project Path="ActiveWorkoutClasses.Shared/ActiveWorkoutClasses.Shared.csproj" />
   <Project Path="ActiveWorkoutClasses.Web/ActiveWorkoutClasses.Web.csproj" />
 </Solution>

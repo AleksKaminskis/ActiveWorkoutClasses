@@ -3,7 +3,7 @@ using ActiveWorkoutClasses.Application.Interfaces;
 using ActiveWorkoutClasses.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
 
-namespace ActiveWorkoutClasses.API.Controllers;
+namespace ActiveWorkoutClasses.ApiService.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]

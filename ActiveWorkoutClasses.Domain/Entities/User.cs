@@ -6,7 +6,6 @@ namespace ActiveWorkoutClasses.Domain.Entities
 {
     /// <summary>
     /// Base user entity for all user types in the system
-    /// Azure AD B2C will handle authentication, this stores additional user data
     /// </summary>
     public class User
     {
@@ -15,15 +14,9 @@ namespace ActiveWorkoutClasses.Domain.Entities
         private string _lastName = string.Empty;
         private string _phoneNumber = string.Empty;
 
-        /// <summary>
-        /// Primary key - matches Azure AD B2C object ID
-        /// </summary>
         [Key]
         public Guid Id { get; set; }
 
-        /// <summary>
-        /// User's email address (unique)
-        /// </summary>
         [Required(ErrorMessage = "Email is required")]
         [EmailAddress(ErrorMessage = "Invalid email format")]
         [StringLength(256, ErrorMessage = "Email cannot exceed 256 characters")]
@@ -45,9 +38,6 @@ namespace ActiveWorkoutClasses.Domain.Entities
             }
         }
 
-        /// <summary>
-        /// First name
-        /// </summary>
         [Required(ErrorMessage = "First name is required")]
         [StringLength(100, MinimumLength = 2, ErrorMessage = "First name must be between 2 and 100 characters")]
         public string FirstName
@@ -68,9 +58,6 @@ namespace ActiveWorkoutClasses.Domain.Entities
             }
         }
 
-        /// <summary>
-        /// Last name
-        /// </summary>
         [Required(ErrorMessage = "Last name is required")]
         [StringLength(100, MinimumLength = 2, ErrorMessage = "Last name must be between 2 and 100 characters")]
         public string LastName
@@ -91,9 +78,6 @@ namespace ActiveWorkoutClasses.Domain.Entities
             }
         }
 
-        /// <summary>
-        /// Contact phone number
-        /// </summary>
         [Required(ErrorMessage = "Phone number is required")]
         [Phone(ErrorMessage = "Invalid phone number format")]
         [StringLength(20, MinimumLength = 10, ErrorMessage = "Phone number must be between 10 and 20 characters")]
@@ -118,34 +102,16 @@ namespace ActiveWorkoutClasses.Domain.Entities
             }
         }
 
-        /// <summary>
-        /// User's role in the system
-        /// </summary>
         public UserRole Role { get; set; }
 
-        /// <summary>
-        /// Whether the user account is active
-        /// </summary>
         public bool IsActive { get; set; } = true;
 
-        /// <summary>
-        /// When the user was created in our system
-        /// </summary>
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        /// <summary>
-        /// Last time user data was updated
-        /// </summary>
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-        /// <summary>
-        /// Full name for display purposes
-        /// </summary>
         public string FullName => $"{FirstName} {LastName}";
 
-        /// <summary>
-        /// Validates email format using regex
-        /// </summary>
         private static bool IsValidEmail(string email)
         {
             if (string.IsNullOrWhiteSpace(email))

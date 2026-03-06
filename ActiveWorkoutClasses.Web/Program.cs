@@ -17,6 +17,9 @@ builder.Services.AddOutputCache();
 
 builder.Services.AddMudServices();
 
+// Configure HttpClient
+var apiBaseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? "https://localhost:7353/";
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(apiBaseUrl) });
 
 var app = builder.Build();
 

@@ -9,15 +9,9 @@ namespace ActiveWorkoutClasses.Domain.Entities
         private string _description = string.Empty;
         private string _location = string.Empty;
 
-        /// <summary>
-        /// Unique identifier for the class
-        /// </summary>
         [Key]
         public Guid Id { get; set; }
 
-        /// <summary>
-        /// Class title (e.g., "Morning Krav Maga Fundamentals")
-        /// </summary>
         [Required(ErrorMessage = "Class title is required")]
         [StringLength(200, MinimumLength = 3, ErrorMessage = "Title must be between 3 and 200 characters")]
         public string Title
@@ -35,9 +29,6 @@ namespace ActiveWorkoutClasses.Domain.Entities
             }
         }
 
-        /// <summary>
-        /// Detailed description of what the class covers
-        /// </summary>
         [Required(ErrorMessage = "Class description is required")]
         [StringLength(1000, MinimumLength = 10, ErrorMessage = "Description must be between 10 and 1000 characters")]
         public string Description
@@ -55,36 +46,15 @@ namespace ActiveWorkoutClasses.Domain.Entities
             }
         }
 
-        /// <summary>
-        /// Type of workout class
-        /// </summary>
         public ClassType ClassType { get; set; }
-
-        /// <summary>
-        /// When the class starts
-        /// </summary>
         public DateTime StartDateTime { get; set; }
-
-        /// <summary>
-        /// When the class ends
-        /// </summary>
         public DateTime EndDateTime { get; set; }
-
-        /// <summary>
-        /// Class duration in minutes (calculated from start/end)
-        /// </summary>
         public int DurationMinutes => (int)(EndDateTime - StartDateTime).TotalMinutes;
 
-        /// <summary>
-        /// Maximum number of students allowed
-        /// </summary>
         [Required]
         [Range(1, 100, ErrorMessage = "Maximum capacity must be between 1 and 100")]
         public int MaxCapacity { get; set; }
 
-        /// <summary>
-        /// Physical location (e.g., "Studio A", "Main Hall")
-        /// </summary>
         [Required(ErrorMessage = "Location is required")]
         [StringLength(100, MinimumLength = 2, ErrorMessage = "Location must be between 2 and 100 characters")]
         public string Location
@@ -102,44 +72,20 @@ namespace ActiveWorkoutClasses.Domain.Entities
             }
         }
 
-        /// <summary>
-        /// Whether this class is active/published
-        /// </summary>
         public bool IsActive { get; set; } = true;
 
-        /// <summary>
-        /// When this class was created in the system
-        /// </summary>
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        /// <summary>
-        /// Last time class details were updated
-        /// </summary>
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-        /// <summary>
-        /// Instructors teaching this class (many-to-many relationship)
-        /// </summary>
         public ICollection<ClassInstructor> ClassInstructors { get; set; } = new List<ClassInstructor>();
 
-        /// <summary>
-        /// Students registered for this class
-        /// </summary>
         public ICollection<ClassRegistration> ClassRegistrations { get; set; } = new List<ClassRegistration>();
 
-        /// <summary>
-        /// Current number of registered students
-        /// </summary>
         public int CurrentEnrollment => ClassRegistrations.Count(r => r.Status == RegistrationStatus.Registered);
 
-        /// <summary>
-        /// Available spots remaining
-        /// </summary>
         public int AvailableSpots => MaxCapacity - CurrentEnrollment;
 
-        /// <summary>
-        /// Whether the class is full
-        /// </summary>
         public bool IsFull => CurrentEnrollment >= MaxCapacity;
 
         /// <summary>
@@ -152,9 +98,6 @@ namespace ActiveWorkoutClasses.Domain.Entities
             return currentTime >= checkInWindowStart && currentTime <= EndDateTime;
         }
 
-        /// <summary>
-        /// Check if this class is happening today
-        /// </summary>
         public bool IsToday(DateTime currentDate)
         {
             return StartDateTime.Date == currentDate.Date;

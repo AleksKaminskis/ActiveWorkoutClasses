@@ -1,0 +1,245 @@
+@page "/classes"
+
+@using ActiveWorkoutClasses.Application.DTOs.Classes
+@using ActiveWorkoutClasses.Domain.Enums
+@using MudBlazor
+@inject HttpClient Http
+
+<PageTitle>Classes</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Classes</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+
+    <MudGrid>
+
+        <MudItem xs="12" md="4">
+            <MudTextField T="string"
+                          Placeholder="Search classes..."
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true"
+                          @bind-Value="filters.SearchTerm" />
+        </MudItem>
+
+        <!-- Active Filter -->
+        <MudItem xs="12" md="2">
+            <MudSelect T="string"
+                       Label="Active"
+                       @bind-Value="filters.Active">
+
+                <MudSelectItem Value="@("All")">All</MudSelectItem>
+                <MudSelectItem Value="@("Active")">Active</MudSelectItem>
+                <MudSelectItem Value="@("Inactive")">Inactive</MudSelectItem>
+
+            </MudSelect>
+        </MudItem>
+
+        <!-- Class Type -->
+        <MudItem xs="12" md="3">
+            <MudSelect T="ClassType?"
+                       Label="Class Type"
+                       @bind-Value="filters.ClassType">
+
+                <MudSelectItem Value="@((ClassType?)null)">All Types</MudSelectItem>
+
+                @foreach (var ct in Enum.GetValues(typeof(ClassType)).Cast<ClassType>())
+                {
+                    <MudSelectItem Value="@((ClassType?)ct)">
+                        @ct
+                    </MudSelectItem>
+                }
+
+            </MudSelect>
+        </MudItem>
+
+        <!-- Availability -->
+        <MudItem xs="12" md="2">
+            <MudSelect T="string"
+                       Label="Availability"
+                       @bind-Value="filters.Availability">
+
+                <MudSelectItem Value="@("All")">All</MudSelectItem>
+                <MudSelectItem Value="@("Available")">Available</MudSelectItem>
+                <MudSelectItem Value="@("Full")">Full</MudSelectItem>
+
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12" md="1" Class="d-flex align-center">
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Secondary"
+                       OnClick="ClearFilters">
+                Clear
+            </MudButton>
+        </MudItem>
+
+    </MudGrid>
+
+</MudPaper>
+
+
+@if (isLoading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (!FilteredClasses.Any())
+{
+    <MudAlert Severity="Severity.Info">
+        No classes found
+    </MudAlert>
+}
+else
+{
+    <MudTable Items="FilteredClasses" Dense="true" Hover="true">
+
+        <HeaderContent>
+            <MudTh>Title</MudTh>
+            <MudTh>Type</MudTh>
+            <MudTh>When</MudTh>
+            <MudTh>Duration</MudTh>
+            <MudTh>Capacity</MudTh>
+            <MudTh>Availability</MudTh>
+            <MudTh>Active</MudTh>
+            <MudTh>Instructors</MudTh>
+        </HeaderContent>
+
+        <RowTemplate>
+
+            <MudTd>@context.Title</MudTd>
+
+            <MudTd>
+                @(string.IsNullOrWhiteSpace(context.ClassTypeName)
+                    ? context.ClassType.ToString()
+                    : context.ClassTypeName)
+            </MudTd>
+
+            <MudTd>@context.StartDateTime.ToString("g")</MudTd>
+
+            <MudTd>@context.DurationMinutes mins</MudTd>
+
+            <MudTd>@context.CurrentEnrollment/@context.MaxCapacity</MudTd>
+
+            <MudTd>
+                <MudChip T="string" Color="@(context.IsFull? Color.Error: Color.Success)">
+                    @(context.IsFull ? "Full" : "Available")
+                </MudChip>
+            </MudTd>
+
+            <MudTd>@(context.IsActive ? "Yes" : "No")</MudTd>
+
+            <MudTd>
+                @(context.Instructors?.Any() == true
+                    ? string.Join(", ", context.Instructors.Select(i => i.FullName))
+                    : "-")
+            </MudTd>
+
+        </RowTemplate>
+
+    </MudTable>
+}
+
+@code {
+
+    public class ClassFilters
+    {
+        public string SearchTerm { get; set; } = "";
+        public string Active { get; set; } = "All";
+        public string Availability { get; set; } = "All";
+        public ClassType? ClassType { get; set; }
+    }
+
+    private List<WorkoutClassDto> classes = new();
+    private bool isLoading = true;
+
+    private ClassFilters filters = new();
+
+
+
+    private IEnumerable<WorkoutClassDto> FilteredClasses
+    {
+        get
+        {
+            try
+            {
+                return classes
+                    .Where(SearchFilter)
+                    .Where(ActiveFilter)
+                    .Where(TypeFilter)
+                    .Where(AvailabilityFilter);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return classes;
+            }
+        }
+    }
+
+
+
+
+    private bool SearchFilter(WorkoutClassDto c)
+    {
+        if (string.IsNullOrWhiteSpace(filters.SearchTerm))
+            return true;
+
+        return (c.Title?.Contains(filters.SearchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (c.Description?.Contains(filters.SearchTerm, StringComparison.OrdinalIgnoreCase) ?? false);
+    }
+
+    private bool ActiveFilter(WorkoutClassDto c)
+    {
+        return filters.Active switch
+        {
+            "Active" => c.IsActive,
+            "Inactive" => !c.IsActive,
+            _ => true
+        };
+    }
+
+    private bool TypeFilter(WorkoutClassDto c)
+    {
+        if (filters.ClassType == null)
+            return true;
+
+        return c.ClassType == filters.ClassType;
+    }
+
+    private bool AvailabilityFilter(WorkoutClassDto c)
+    {
+        return filters.Availability switch
+        {
+            "Available" => !c.IsFull,
+            "Full" => c.IsFull,
+            _ => true
+        };
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadClassesAsync();
+    }
+
+    private async Task LoadClassesAsync()
+    {
+        try
+        {
+            isLoading = true;
+
+            var result = await Http.GetFromJsonAsync<List<WorkoutClassDto>>("api/classes");
+
+            if (result != null)
+                classes = result;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ClearFilters()
+    {
+        filters = new ClassFilters();
+    }
+}

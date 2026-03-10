@@ -1,0 +1,218 @@
+﻿@page "/classes/edit/{Id:guid}"
+
+@using ActiveWorkoutClasses.Application.DTOs.Classes
+@using ActiveWorkoutClasses.Domain.Enums
+@using MudBlazor
+
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Edit Class</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Edit Class</MudText>
+
+@if (isLoading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-6">
+
+        <MudForm @ref="form">
+
+            <MudGrid>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField Label="Title"
+                                  @bind-Value="model.Title"
+                                  Required="true"
+                                  RequiredError="Title is required" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudSelect T="ClassType"
+                               Label="Class Type"
+                               @bind-Value="model.ClassType"
+                               Required="true">
+
+                        @foreach (var type in Enum.GetValues<ClassType>())
+                        {
+                            <MudSelectItem Value="@type">@type</MudSelectItem>
+                        }
+
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField Label="Description"
+                                  @bind-Value="model.Description"
+                                  Lines="3" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudDatePicker Label="Start Date"
+                                   @bind-Date="startDate" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTimePicker Label="Start Time"
+                                   @bind-Time="startTime" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudDatePicker Label="End Date"
+                                   @bind-Date="endDate" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTimePicker Label="End Time"
+                                   @bind-Time="endTime" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudNumericField T="int"
+                                     Label="Max Capacity"
+                                     @bind-Value="model.MaxCapacity"
+                                     Required="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="8">
+                    <MudTextField Label="Location"
+                                  @bind-Value="model.Location" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudSwitch T="bool" Label="Active"
+                               @bind-Checked="model.IsActive"
+                               Color="Color.Success" />
+                </MudItem>
+
+            </MudGrid>
+
+            <MudDivider Class="my-4"/>
+
+            <MudStack Row="true" Spacing="2">
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Disabled="isSaving"
+                           OnClick="Save">
+                    Save
+                </MudButton>
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Secondary"
+                           OnClick="@(()=>Navigation.NavigateTo("/classes"))">
+                    Cancel
+                </MudButton>
+
+            </MudStack>
+
+        </MudForm>
+
+    </MudPaper>
+}
+
+@code {
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private MudForm? form;
+
+    private UpdateWorkoutClassDto model = new();
+
+    private bool isLoading = true;
+    private bool isSaving = false;
+
+    private DateTime? startDate;
+    private TimeSpan? startTime;
+
+    private DateTime? endDate;
+    private TimeSpan? endTime;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadClass();
+    }
+
+    private async Task LoadClass()
+    {
+        try
+        {
+            isLoading = true;
+
+            var dto = await Http.GetFromJsonAsync<WorkoutClassDto>($"api/classes/{Id}");
+
+            if (dto != null)
+            {
+                model = new UpdateWorkoutClassDto
+                {
+                    Title = dto.Title,
+                    Description = dto.Description,
+                    ClassType = dto.ClassType,
+                    MaxCapacity = dto.MaxCapacity,
+                    Location = dto.Location,
+                    IsActive = dto.IsActive,
+                    InstructorIds = dto.Instructors.Select(i => i.Id).ToList()
+                };
+
+                startDate = dto.StartDateTime.Date;
+                startTime = dto.StartDateTime.TimeOfDay;
+
+                endDate = dto.EndDateTime.Date;
+                endTime = dto.EndDateTime.TimeOfDay;
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Failed to load class", Severity.Error);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task Save()
+    {
+        await form.ValidateAsync();
+
+        if (!form.IsValid)
+            return;
+
+        isSaving = true;
+
+        try
+        {
+            if (startDate.HasValue && startTime.HasValue)
+                model.StartDateTime = startDate.Value.Add(startTime.Value);
+
+            if (endDate.HasValue && endTime.HasValue)
+                model.EndDateTime = endDate.Value.Add(endTime.Value);
+
+            var response = await Http.PutAsJsonAsync($"api/classes/{Id}", model);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Class updated successfully", Severity.Success);
+                Navigation.NavigateTo("/classes");
+            }
+            else
+            {
+                Snackbar.Add("Failed to update class", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Unexpected error while saving", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+}

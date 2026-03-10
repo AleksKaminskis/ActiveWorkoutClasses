@@ -3,7 +3,11 @@
 @using ActiveWorkoutClasses.Application.DTOs.Classes
 @using ActiveWorkoutClasses.Domain.Enums
 @using MudBlazor
+
+@inject NavigationManager Navigation
 @inject HttpClient Http
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
 <PageTitle>Classes</PageTitle>
 
@@ -102,6 +106,7 @@ else
             <MudTh>Availability</MudTh>
             <MudTh>Active</MudTh>
             <MudTh>Instructors</MudTh>
+            <MudTh>Actions</MudTh>
         </HeaderContent>
 
         <RowTemplate>
@@ -134,12 +139,60 @@ else
                     : "-")
             </MudTd>
 
+            <MudTd>
+                <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Tertiary">CheckIn</MudButton>
+
+                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                               Color="Color.Warning"
+                               Size="Size.Medium"
+                               OnClick="@(() => EditClass(context.Id))"
+                               Title="Edit Class" />
+
+                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                               Color="Color.Error"
+                               Size="Size.Medium"
+                               OnClick="@(() => DeleteAsync(context.Id))"
+                               Title="Delete Class" />
+
+            </MudTd>
+
         </RowTemplate>
 
     </MudTable>
 }
 
 @code {
+
+    private void EditClass(Guid id)
+    {
+        Navigation.NavigateTo($"/classes/edit/{id}");
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        var parameters = new DialogParameters<Dialog>
+        {
+            { x => x.ContentText, "Are you sure you want to delete this class? This process cannot be undone." },
+            { x => x.ButtonText, "Delete" },
+            { x => x.Color, Color.Error }
+        };
+
+        var options = new DialogOptions() { CloseButton = true, MaxWidth = MaxWidth.Small };
+        var dialog = await DialogService.ShowAsync<Dialog>("Delete", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await DeleteClass(id);
+        }
+    }
+
+    private async Task DeleteClass(Guid id)
+    {
+        await Http.DeleteAsync($"api/classes/{id}");
+        Snackbar.Add("Class deleted successfully", Severity.Success);
+        await LoadClassesAsync(); // refresh table
+    }
 
     public class ClassFilters
     {
@@ -153,8 +206,6 @@ else
     private bool isLoading = true;
 
     private ClassFilters filters = new();
-
-
 
     private IEnumerable<WorkoutClassDto> FilteredClasses
     {
@@ -175,9 +226,6 @@ else
             }
         }
     }
-
-
-
 
     private bool SearchFilter(WorkoutClassDto c)
     {

@@ -1,0 +1,220 @@
+﻿@page "/classes/create"
+
+@using ActiveWorkoutClasses.Application.DTOs.Classes
+@using ActiveWorkoutClasses.Domain.Enums
+@using MudBlazor
+
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Create Class</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Create New Class</MudText>
+
+<MudPaper Class="pa-6">
+
+    <MudForm @ref="form">
+
+        <MudGrid>
+
+            <MudItem xs="12" md="6">
+                <MudTextField Label="Title"
+                              @bind-Value="model.Title"
+                              Required="true" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudSelect T="ClassType"
+                           Label="Class Type"
+                           @bind-Value="model.ClassType"
+                           Required="true">
+
+                    @foreach (var type in Enum.GetValues<ClassType>())
+                    {
+                        <MudSelectItem Value="@type">@type</MudSelectItem>
+                    }
+
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudTextField Label="Description"
+                              Lines="3"
+                              @bind-Value="model.Description" />
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudSelect T="Guid"
+                           Label="Instructors"
+                           MultiSelection="true"
+                           @bind-SelectedValues="SelectedInstructorIds">
+
+                    @foreach (var instructor in instructors)
+                    {
+                        <MudSelectItem Value="@instructor.Id">
+                            @instructor.FullName
+                        </MudSelectItem>
+                    }
+
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudSelect T="Guid ?"
+                           Label="Primary Instructor"
+                           @bind-Value="model.PrimaryInstructorId">
+
+                    <MudSelectItem Value="@((Guid?)null)">
+                        None
+                    </MudSelectItem>
+
+                    @foreach (var instructor in instructors)
+                    {
+                        <MudSelectItem Value="@instructor.Id">
+                            @instructor.FullName
+                        </MudSelectItem>
+                    }
+
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudDatePicker Label="Start Date"
+                               @bind-Date="startDate" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudTimePicker Label="Start Time"
+                               @bind-Time="startTime" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudDatePicker Label="End Date"
+                               @bind-Date="endDate" />
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudTimePicker Label="End Time"
+                               @bind-Time="endTime" />
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudNumericField T="int"
+                                 Label="Max Capacity"
+                                 @bind-Value="model.MaxCapacity" />
+            </MudItem>
+
+            <MudItem xs="12" md="8">
+                <MudTextField Label="Location"
+                              @bind-Value="model.Location" />
+            </MudItem>
+
+        </MudGrid>
+
+        <MudDivider Class="my-4" />
+
+        <MudStack Row="true" Spacing="2">
+
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="Create">
+                Create Class
+            </MudButton>
+
+            <MudButton Variant="Variant.Outlined"
+                       OnClick="@(()=>Navigation.NavigateTo("/classes"))">
+                Cancel
+            </MudButton>
+
+        </MudStack>
+
+    </MudForm>
+
+</MudPaper>
+
+@code {
+
+    private MudForm? form;
+
+    private CreateWorkoutClassDto model = new();
+
+    private List<InstructorSummaryDto> instructors = new();
+
+    private IReadOnlyCollection<Guid> SelectedInstructorIds
+    {
+        get => model.InstructorIds;
+        set
+        {
+            model.InstructorIds = value?.ToList() ?? new List<Guid>();
+
+            UpdatePrimaryInstructor();
+        }
+    }
+
+    private DateTime? startDate;
+    private TimeSpan? startTime;
+
+    private DateTime? endDate;
+    private TimeSpan? endTime;
+
+    private void UpdatePrimaryInstructor()
+    {
+        if (model.InstructorIds.Count == 0)
+        {
+            model.PrimaryInstructorId = null;
+        }
+        else if (model.InstructorIds.Count == 1)
+        {
+            model.PrimaryInstructorId = model.InstructorIds.First();
+        }
+        else
+        {
+            if (!model.PrimaryInstructorId.HasValue ||
+                !model.InstructorIds.Contains(model.PrimaryInstructorId.Value))
+            {
+                model.PrimaryInstructorId = null;
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInstructors();
+    }
+
+    private async Task LoadInstructors()
+    {
+        var result = await Http.GetFromJsonAsync<List<InstructorSummaryDto>>("/api/Users/instructors");
+
+        if (result != null)
+            instructors = result;
+    }
+
+    private async Task Create()
+    {
+        await form.ValidateAsync();
+
+        if (!form.IsValid)
+            return;
+
+        if (startDate.HasValue && startTime.HasValue)
+            model.StartDateTime = startDate.Value.Add(startTime.Value);
+
+        if (endDate.HasValue && endTime.HasValue)
+            model.EndDateTime = endDate.Value.Add(endTime.Value);
+
+        var response = await Http.PostAsJsonAsync("api/classes", model);
+
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Class created successfully", Severity.Success);
+            Navigation.NavigateTo("/classes");
+        }
+        else
+        {
+            Snackbar.Add("Failed to create class", Severity.Error);
+        }
+    }
+
+}

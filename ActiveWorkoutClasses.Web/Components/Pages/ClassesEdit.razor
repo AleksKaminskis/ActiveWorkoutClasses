@@ -24,14 +24,14 @@ else
 
             <MudGrid>
 
-                <MudItem xs="12" md="6">
+                <MudItem xs="12" md="4">
                     <MudTextField Label="Title"
                                   @bind-Value="model.Title"
                                   Required="true"
                                   RequiredError="Title is required" />
                 </MudItem>
 
-                <MudItem xs="12" md="6">
+                <MudItem xs="12" md="4">
                     <MudSelect T="ClassType"
                                Label="Class Type"
                                @bind-Value="model.ClassType"
@@ -45,53 +45,105 @@ else
                     </MudSelect>
                 </MudItem>
 
+                <MudItem xs="12" md="4">
+                    <MudSwitch T="bool"
+                               Label="Active"
+                               Color="Color.Success"
+                               @bind-Checked="model.IsActive" />
+                </MudItem>
+
                 <MudItem xs="12">
                     <MudTextField Label="Description"
-                                  @bind-Value="model.Description"
-                                  Lines="3" />
+                                  Lines="3"
+                                  @bind-Value="model.Description" />
                 </MudItem>
 
-                <MudItem xs="12" md="6">
-                    <MudDatePicker Label="Start Date"
-                                   @bind-Date="startDate" />
+                <MudItem xs="12">
+
+                    <MudAutocomplete T="InstructorSummaryDto"
+                                     @ref="instructorAuto"
+                                     Label="Add Instructor"
+                                     Dense="true"
+                                     Clearable="true"
+                                     ToStringFunc="@(i => i?.FullName)"
+                                     SearchFunc="SearchInstructors"
+                                     ValueChanged="AddInstructor"
+                                     ResetValueOnEmptyText="true" />
+
                 </MudItem>
 
-                <MudItem xs="12" md="6">
-                    <MudTimePicker Label="Start Time"
-                                   @bind-Time="startTime" />
+                <MudItem xs="12">
+
+                    <MudStack Row="true" Spacing="1">
+                        @foreach (var instructorId in selectedInstructorIds)
+                        {
+                            var instructor = instructors.FirstOrDefault(i => i.Id == instructorId);
+
+                            <MudChip T="Guid"
+                                     Value="@instructorId"
+                                     Text="@instructor?.FullName"
+                                     OnClose="RemoveInstructor"
+                                     Closeable="true"
+                                     Color="Color.Primary"
+                                     Variant="Variant.Filled" />
+                        }
+                    </MudStack>
+
                 </MudItem>
 
-                <MudItem xs="12" md="6">
-                    <MudDatePicker Label="End Date"
-                                   @bind-Date="endDate" />
-                </MudItem>
+                <MudItem xs="12" md="4">
 
-                <MudItem xs="12" md="6">
-                    <MudTimePicker Label="End Time"
-                                   @bind-Time="endTime" />
+                    <MudSelect T="Guid ?"
+                               Label="Primary Instructor"
+                               @bind-Value="primaryInstructorId"
+                               Disabled="@(selectedInstructorIds.Count < 2)"
+                               ToStringFunc="PrimaryInstructorText">
+
+                        <MudSelectItem T="Guid?" Value="@((Guid?)null)">
+                            None
+                        </MudSelectItem>
+
+                        @foreach (var instructor in instructors.Where(i => selectedInstructorIds.Contains(i.Id)))
+                        {
+                            <MudSelectItem T="Guid?" Value="@((Guid?)instructor.Id)">
+                                @instructor.FullName
+                            </MudSelectItem>
+                        }
+
+                    </MudSelect>
+
                 </MudItem>
 
                 <MudItem xs="12" md="4">
                     <MudNumericField T="int"
-                                     Label="Max Capacity"
-                                     @bind-Value="model.MaxCapacity"
-                                     Required="true" />
+                                  Label="Max Capacity"
+                                  @bind-Value="model.MaxCapacity"
+                                  Required="true" />
                 </MudItem>
 
-                <MudItem xs="12" md="8">
-                    <MudTextField Label="Location"
-                                  @bind-Value="model.Location" />
+                <MudItem xs="12" md="4">
+                    <MudTextField Label="Location" @bind-Value="model.Location" />
                 </MudItem>
 
-                <MudItem xs="12">
-                    <MudSwitch T="bool" Label="Active"
-                               @bind-Checked="model.IsActive"
-                               Color="Color.Success" />
+                <MudItem xs="12" md="3">
+                    <MudDatePicker Label="Start Date" @bind-Date="startDate" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudTimePicker Label="Start Time" @bind-Time="startTime" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudDatePicker Label="End Date" @bind-Date="endDate" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudTimePicker Label="End Time" @bind-Time="endTime" />
                 </MudItem>
 
             </MudGrid>
 
-            <MudDivider Class="my-4"/>
+            <MudDivider Class="my-4" />
 
             <MudStack Row="true" Spacing="2">
 
@@ -99,13 +151,16 @@ else
                            Color="Color.Primary"
                            Disabled="isSaving"
                            OnClick="Save">
+
                     Save
+
                 </MudButton>
 
                 <MudButton Variant="Variant.Outlined"
-                           Color="Color.Secondary"
                            OnClick="@(()=>Navigation.NavigateTo("/classes"))">
+
                     Cancel
+
                 </MudButton>
 
             </MudStack>
@@ -122,10 +177,10 @@ else
 
     private MudForm? form;
 
-    private UpdateWorkoutClassDto model = new();
-
     private bool isLoading = true;
     private bool isSaving = false;
+
+    private UpdateWorkoutClassDto model = new();
 
     private DateTime? startDate;
     private TimeSpan? startTime;
@@ -133,31 +188,46 @@ else
     private DateTime? endDate;
     private TimeSpan? endTime;
 
+    private MudAutocomplete<InstructorSummaryDto>? instructorAuto;
+
+    private List<InstructorSummaryDto> instructors = new();
+
+    private List<Guid> selectedInstructorIds = new();
+
+    private Guid? primaryInstructorId;
+
     protected override async Task OnInitializedAsync()
     {
+        await LoadInstructors();
         await LoadClass();
+    }
+
+    private async Task LoadInstructors()
+    {
+        var result = await Http.GetFromJsonAsync<List<InstructorSummaryDto>>("/api/Users/instructors");
+
+        if (result != null)
+            instructors = result;
     }
 
     private async Task LoadClass()
     {
         try
         {
-            isLoading = true;
-
             var dto = await Http.GetFromJsonAsync<WorkoutClassDto>($"api/classes/{Id}");
 
             if (dto != null)
             {
-                model = new UpdateWorkoutClassDto
-                {
-                    Title = dto.Title,
-                    Description = dto.Description,
-                    ClassType = dto.ClassType,
-                    MaxCapacity = dto.MaxCapacity,
-                    Location = dto.Location,
-                    IsActive = dto.IsActive,
-                    InstructorIds = dto.Instructors.Select(i => i.Id).ToList()
-                };
+                model.Title = dto.Title;
+                model.Description = dto.Description;
+                model.ClassType = dto.ClassType;
+                model.MaxCapacity = dto.MaxCapacity;
+                model.Location = dto.Location;
+                model.IsActive = dto.IsActive;
+
+                selectedInstructorIds = dto.Instructors.Select(i => i.Id).ToList();
+
+                primaryInstructorId = selectedInstructorIds.FirstOrDefault();
 
                 startDate = dto.StartDateTime.Date;
                 startTime = dto.StartDateTime.TimeOfDay;
@@ -176,6 +246,66 @@ else
         }
     }
 
+    private Task<IEnumerable<InstructorSummaryDto>> SearchInstructors(string value, CancellationToken token)
+    {
+        var available = instructors
+        .Where(i => !selectedInstructorIds.Contains(i.Id));
+
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.FromResult(available);
+
+        var result = available
+        .Where(i => i.FullName.Contains(value, StringComparison.OrdinalIgnoreCase));
+
+        return Task.FromResult(result);
+    }
+
+    private async Task AddInstructor(InstructorSummaryDto instructor)
+    {
+        if (instructor == null)
+            return;
+
+        if (!selectedInstructorIds.Contains(instructor.Id))
+            selectedInstructorIds.Add(instructor.Id);
+
+        UpdatePrimaryInstructor();
+        instructorAuto?.ResetAsync();
+    }
+
+    private void RemoveInstructor(MudChip<Guid> chip)
+    {
+        selectedInstructorIds.Remove(chip.Value);
+
+        UpdatePrimaryInstructor();
+    }
+
+    private void UpdatePrimaryInstructor()
+    {
+        if (selectedInstructorIds.Count == 0)
+        {
+            primaryInstructorId = null;
+        }
+        else if (selectedInstructorIds.Count == 1)
+        {
+            primaryInstructorId = selectedInstructorIds.First();
+        }
+        else
+        {
+            if (!primaryInstructorId.HasValue || !selectedInstructorIds.Contains(primaryInstructorId.Value))
+                primaryInstructorId = null;
+        }
+    }
+
+    private string PrimaryInstructorText(Guid? id)
+    {
+        if (!id.HasValue)
+            return "None";
+
+        var instructor = instructors.FirstOrDefault(i => i.Id == id.Value);
+
+        return instructor?.FullName ?? "";
+    }
+
     private async Task Save()
     {
         await form.ValidateAsync();
@@ -192,6 +322,9 @@ else
 
             if (endDate.HasValue && endTime.HasValue)
                 model.EndDateTime = endDate.Value.Add(endTime.Value);
+
+            model.InstructorIds = selectedInstructorIds;
+            model.PrimaryInstructorId = primaryInstructorId;
 
             var response = await Http.PutAsJsonAsync($"api/classes/{Id}", model);
 

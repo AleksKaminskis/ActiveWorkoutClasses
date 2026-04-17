@@ -1,4 +1,5 @@
 ﻿using ActiveWorkoutClasses.Domain.Entities;
+using ActiveWorkoutClasses.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace ActiveWorkoutClasses.Infrastructure.Data
@@ -21,6 +22,13 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
         public DbSet<ClassInstructor> ClassInstructors => Set<ClassInstructor>();
         public DbSet<ClassRegistration> ClassRegistrations => Set<ClassRegistration>();
         public DbSet<Attendance> Attendances => Set<Attendance>();
+        public DbSet<Location> Locations => Set<Location>();
+        public DbSet<RecurringSchedule> RecurringSchedules => Set<RecurringSchedule>();
+        public DbSet<GradingEvent> GradingEvents => Set<GradingEvent>();
+        public DbSet<EligibilityRule> EligibilityRules => Set<EligibilityRule>();
+        public DbSet<GradingResult> GradingResults => Set<GradingResult>();
+        public DbSet<ProgressRecord> ProgressRecords => Set<ProgressRecord>();
+        public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -58,9 +66,20 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
                     .IsRequired()
                     .HasMaxLength(1000);
 
-                entity.Property(e => e.Location)
-                    .IsRequired()
+                entity.Property(e => e.LocationName)
                     .HasMaxLength(100);
+
+                // Optional FK to the Location entity
+                entity.HasOne(e => e.Location)
+                    .WithMany(l => l.Classes)
+                    .HasForeignKey(e => e.LocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                // Optional FK to RecurringSchedule
+                entity.HasOne(e => e.RecurringSchedule)
+                    .WithMany(rs => rs.GeneratedClasses)
+                    .HasForeignKey(e => e.RecurringScheduleId)
+                    .OnDelete(DeleteBehavior.SetNull);
 
                 entity.Property(e => e.ClassType)
                     .IsRequired();
@@ -191,6 +210,14 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
 
                 entity.Property(s => s.MembershipStartDate)
                     .IsRequired();
+
+                entity.Property(s => s.StudentNumber)
+                    .HasMaxLength(20);
+
+                entity.HasIndex(s => s.StudentNumber)
+                    .IsUnique()
+                    .HasFilter("[StudentNumber] IS NOT NULL AND [StudentNumber] != ''")
+                    .HasDatabaseName("IX_Student_StudentNumber");
             });
 
             // Configure Instructor
@@ -214,6 +241,108 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
                 // Decimal precision for hourly rate
                 entity.Property(i => i.HourlyRate)
                     .HasColumnType("decimal(18,2)");
+            });
+
+            // Configure Location
+            modelBuilder.Entity<Location>(entity =>
+            {
+                entity.HasKey(l => l.Id);
+                entity.Property(l => l.Name).IsRequired().HasMaxLength(100);
+                entity.Property(l => l.Address).IsRequired().HasMaxLength(200);
+                entity.Property(l => l.City).IsRequired().HasMaxLength(100);
+                entity.Property(l => l.Notes).HasMaxLength(500);
+            });
+
+            // Configure RecurringSchedule
+            modelBuilder.Entity<RecurringSchedule>(entity =>
+            {
+                entity.HasKey(rs => rs.Id);
+                entity.Property(rs => rs.Title).IsRequired().HasMaxLength(200);
+                entity.Property(rs => rs.Description).HasMaxLength(1000);
+
+                entity.HasOne(rs => rs.Location)
+                    .WithMany(l => l.Schedules)
+                    .HasForeignKey(rs => rs.LocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Configure GradingEvent
+            modelBuilder.Entity<GradingEvent>(entity =>
+            {
+                entity.HasKey(ge => ge.Id);
+                entity.Property(ge => ge.Title).IsRequired().HasMaxLength(200);
+                entity.Property(ge => ge.Description).HasMaxLength(1000);
+
+                entity.HasOne(ge => ge.Location)
+                    .WithMany(l => l.GradingEvents)
+                    .HasForeignKey(ge => ge.LocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasMany(ge => ge.EligibilityRules)
+                    .WithOne(er => er.GradingEvent)
+                    .HasForeignKey(er => er.GradingEventId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasMany(ge => ge.Results)
+                    .WithOne(gr => gr.GradingEvent)
+                    .HasForeignKey(gr => gr.GradingEventId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Configure GradingResult
+            modelBuilder.Entity<GradingResult>(entity =>
+            {
+                entity.HasKey(gr => gr.Id);
+
+                entity.HasOne(gr => gr.Student)
+                    .WithMany(s => s.GradingResults)
+                    .HasForeignKey(gr => gr.StudentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(gr => new { gr.GradingEventId, gr.StudentId })
+                    .IsUnique()
+                    .HasDatabaseName("IX_GradingResult_Event_Student_Unique");
+
+                entity.Property(gr => gr.EligibilityNotes).HasMaxLength(2000);
+                entity.Property(gr => gr.NewSkillLevel).HasMaxLength(100);
+                entity.Property(gr => gr.InstructorNotes).HasMaxLength(1000);
+            });
+
+            // Configure ProgressRecord
+            modelBuilder.Entity<ProgressRecord>(entity =>
+            {
+                entity.HasKey(pr => pr.Id);
+
+                entity.HasOne(pr => pr.Student)
+                    .WithMany(s => s.ProgressRecords)
+                    .HasForeignKey(pr => pr.StudentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(pr => pr.RecordedByInstructor)
+                    .WithMany()
+                    .HasForeignKey(pr => pr.RecordedByInstructorId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasIndex(pr => new { pr.StudentId, pr.Discipline })
+                    .HasDatabaseName("IX_ProgressRecord_Student_Discipline");
+
+                entity.Property(pr => pr.SkillLevel).IsRequired().HasMaxLength(100);
+                entity.Property(pr => pr.Notes).HasMaxLength(1000);
+            });
+
+            // Configure AuditLog
+            modelBuilder.Entity<AuditLog>(entity =>
+            {
+                entity.HasKey(al => al.Id);
+                entity.Property(al => al.EntityType).IsRequired().HasMaxLength(100);
+                entity.Property(al => al.EntityId).IsRequired().HasMaxLength(100);
+                entity.Property(al => al.Action).IsRequired().HasMaxLength(100);
+                entity.Property(al => al.Reason).HasMaxLength(500);
+
+                entity.HasIndex(al => new { al.EntityType, al.EntityId })
+                    .HasDatabaseName("IX_AuditLog_Entity");
+                entity.HasIndex(al => al.PerformedAt)
+                    .HasDatabaseName("IX_AuditLog_PerformedAt");
             });
         }
 

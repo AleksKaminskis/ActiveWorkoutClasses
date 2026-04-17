@@ -1,12 +1,8 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-var apiService = builder.AddProject<Projects.ActiveWorkoutClasses_ApiService>("apiservice")
-    .WithHttpHealthCheck("/health");
-
-builder.AddProject<Projects.ActiveWorkoutClasses_Web>("webfrontend")
+// ApiService now hosts both the REST API and the Blazor WASM frontend (hosted model)
+builder.AddProject<Projects.ActiveWorkoutClasses_ApiService>("apiservice")
     .WithExternalHttpEndpoints()
-    .WithHttpHealthCheck("/health")
-    .WithReference(apiService)
-    .WaitFor(apiService);
+    .WithHttpHealthCheck("/health");
 
 builder.Build().Run();

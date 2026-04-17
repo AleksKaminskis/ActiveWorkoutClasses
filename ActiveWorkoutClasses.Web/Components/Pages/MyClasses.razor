@@ -1,0 +1,140 @@
+@page "/my-classes"
+@attribute [Authorize(Roles = "Student")]
+
+@using ActiveWorkoutClasses.Application.DTOs.Registrations
+@using ActiveWorkoutClasses.Domain.Enums
+
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>My Classes</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-6" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;">
+    My Classes
+</MudText>
+
+@if (_isLoading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true">
+
+        <MudTabPanel Text="Upcoming">
+            <MudTable Items="@_upcoming" Hover="true" Class="mt-4">
+                <HeaderContent>
+                    <MudTh>Class</MudTh>
+                    <MudTh>Date & Time</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Attendance</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.ClassName</MudTd>
+                    <MudTd>@context.ClassStartTime.ToString("ddd dd MMM yyyy HH:mm")</MudTd>
+                    <MudTd>
+                        <MudChip T="string" Size="Size.Small"
+                                 Color="@StatusColor(context.Status)">
+                            @context.StatusName
+                        </MudChip>
+                    </MudTd>
+                    <MudTd>
+                        @if (context.HasAttendance && context.Attendance != null)
+                        {
+                            <MudIcon Icon="@(context.Attendance.IsPresent ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
+                                     Color="@(context.Attendance.IsPresent ? Color.Success : Color.Error)"
+                                     Size="Size.Small" />
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">—</MudText>
+                        }
+                    </MudTd>
+                    <MudTd>
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error"
+                                   OnClick="@(() => CancelRegistration(context.Id))">
+                            Cancel
+                        </MudButton>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Class="pa-4" Color="Color.Secondary">No upcoming classes registered.</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Past">
+            <MudTable Items="@_past" Hover="true" Class="mt-4">
+                <HeaderContent>
+                    <MudTh>Class</MudTh>
+                    <MudTh>Date</MudTh>
+                    <MudTh>Attended</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.ClassName</MudTd>
+                    <MudTd>@context.ClassStartTime.ToString("dd MMM yyyy")</MudTd>
+                    <MudTd>
+                        @if (context.Attendance != null)
+                        {
+                            <MudIcon Icon="@(context.Attendance.IsPresent ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
+                                     Color="@(context.Attendance.IsPresent ? Color.Success : Color.Error)"
+                                     Size="Size.Small" />
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">—</MudText>
+                        }
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Class="pa-4" Color="Color.Secondary">No past classes found.</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </MudTabPanel>
+
+    </MudTabs>
+}
+
+@code {
+
+    private bool _isLoading = true;
+    private List<ClassRegistrationDto> _upcoming = new();
+    private List<ClassRegistrationDto> _past = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var all = await Api.GetAsync<List<ClassRegistrationDto>>("api/registrations/my");
+            if (all is not null)
+            {
+                _upcoming = all.Where(r => r.ClassStartTime >= DateTime.UtcNow).OrderBy(r => r.ClassStartTime).ToList();
+                _past = all.Where(r => r.ClassStartTime < DateTime.UtcNow).OrderByDescending(r => r.ClassStartTime).ToList();
+            }
+        }
+        catch { Snackbar.Add("Failed to load registrations", Severity.Error); }
+        finally { _isLoading = false; }
+    }
+
+    private async Task CancelRegistration(Guid registrationId)
+    {
+        var success = await Api.DeleteAsync($"api/registrations/{registrationId}");
+        if (success)
+        {
+            _upcoming.RemoveAll(r => r.Id == registrationId);
+            Snackbar.Add("Registration cancelled", Severity.Success);
+        }
+        else
+            Snackbar.Add("Failed to cancel registration", Severity.Error);
+    }
+
+    private Color StatusColor(RegistrationStatus status) => status switch
+    {
+        RegistrationStatus.Registered => Color.Success,
+        RegistrationStatus.Waitlisted => Color.Warning,
+        RegistrationStatus.Cancelled => Color.Error,
+        _ => Color.Default
+    };
+
+}

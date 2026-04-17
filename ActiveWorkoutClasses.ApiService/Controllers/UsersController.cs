@@ -1,12 +1,14 @@
 ﻿using ActiveWorkoutClasses.Application.DTOs.Users;
 using ActiveWorkoutClasses.Application.Interfaces;
 using ActiveWorkoutClasses.Domain.Enums;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ActiveWorkoutClasses.ApiService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "Admin")]
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;

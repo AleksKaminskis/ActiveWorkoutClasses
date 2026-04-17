@@ -8,6 +8,7 @@ namespace ActiveWorkoutClasses.Application.DTOs.Users
     public class UserDetailDto : UserDto
     {
         // Student-specific
+        public string? StudentNumber { get; set; }
         public DateTime? MembershipStartDate { get; set; }
         public DateTime? MembershipEndDate { get; set; }
         public string? EmergencyContact { get; set; }

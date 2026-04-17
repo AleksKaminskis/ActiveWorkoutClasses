@@ -1,7 +1,25 @@
-﻿@page "/"
+@page "/"
+@attribute [Authorize]
 
-<PageTitle>ActiveWorkout</PageTitle>
+@inject IAuthStateService AuthState
+@inject NavigationManager Nav
 
-<h1>ActiveWorkout Classes App</h1>
+<PageTitle>Dashboard — Active Workout Classes</PageTitle>
 
-The place where you can manage your classes and track student's attendance.
+<AuthorizeView Roles="Admin">
+    <Authorized>
+        <AdminDashboard />
+    </Authorized>
+</AuthorizeView>
+
+<AuthorizeView Roles="Instructor">
+    <Authorized>
+        <InstructorDashboard />
+    </Authorized>
+</AuthorizeView>
+
+<AuthorizeView Roles="Student">
+    <Authorized>
+        <StudentDashboard />
+    </Authorized>
+</AuthorizeView>

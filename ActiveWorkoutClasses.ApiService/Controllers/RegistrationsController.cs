@@ -1,11 +1,13 @@
 ﻿using ActiveWorkoutClasses.Application.DTOs.Registrations;
 using ActiveWorkoutClasses.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ActiveWorkoutClasses.ApiService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class RegistrationsController : ControllerBase
     {
         private readonly IRegistrationService _registrationService;

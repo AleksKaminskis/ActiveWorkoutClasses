@@ -21,6 +21,7 @@ namespace ActiveWorkoutClasses.Application.DTOs.Classes
         public int AvailableSpots { get; set; }
         public bool IsFull { get; set; }
         public string Location { get; set; } = string.Empty;
+        public int? LocationId { get; set; }
         public bool IsActive { get; set; }
         public List<InstructorSummaryDto> Instructors { get; set; } = new();
         public bool CanCheckIn { get; set; }

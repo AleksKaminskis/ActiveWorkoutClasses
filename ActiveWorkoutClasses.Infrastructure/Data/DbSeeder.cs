@@ -2,10 +2,15 @@
 using ActiveWorkoutClasses.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
+// BCrypt is referenced via ActiveWorkoutClasses.Infrastructure.Security.PasswordHasher
+// For seeding we call BCrypt directly to keep DbSeeder self-contained.
+
 namespace ActiveWorkoutClasses.Infrastructure.Data
 {
     public static class DbSeeder
     {
+        private const string SeedPassword = "Password123!";
+
         public static async Task SeedAsync(ApplicationDbContext context)
         {
             // Ensure database is created
@@ -13,10 +18,42 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
 
             // Only seed if database is empty (check if any users exist)
             var hasUsers = await context.Users.AnyAsync();
-            if (hasUsers)
+            if (hasUsers) return;
+
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword(SeedPassword, workFactor: 12);
+
+            // ========================================
+            // 0. Seed Locations
+            // ========================================
+            var locationMainDojo = new Location
             {
-                return; // Database already seeded
-            }
+                Name = "Main Dojo",
+                Address = "12 Rathmines Road",
+                City = "Dublin",
+                Capacity = 30,
+                IsActive = true,
+                Notes = "Primary training venue with sprung floor"
+            };
+            var locationCommunity = new Location
+            {
+                Name = "Community Centre",
+                Address = "45 Ranelagh Village",
+                City = "Dublin",
+                Capacity = 50,
+                IsActive = true,
+                Notes = "Large sports hall, shared with other clubs"
+            };
+            var locationSportsHall = new Location
+            {
+                Name = "Sports Hall Annex",
+                Address = "78 Terenure Road",
+                City = "Dublin",
+                Capacity = 20,
+                IsActive = true,
+                Notes = "Smaller studio, ideal for yoga and pilates"
+            };
+            context.Locations.AddRange(locationMainDojo, locationCommunity, locationSportsHall);
+            await context.SaveChangesAsync();
 
             // ========================================
             // 1. Create Admin User
@@ -30,6 +67,7 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
                 PhoneNumber = "+353871234567",
                 Role = UserRole.Admin,
                 IsActive = true,
+                PasswordHash = passwordHash,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -46,6 +84,7 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
                 PhoneNumber = "+353871234501",
                 Role = UserRole.Instructor,
                 IsActive = true,
+                PasswordHash = passwordHash,
                 Specialization = "Krav Maga & Self-Defense",
                 Bio = "Former IDF instructor with 12 years of experience teaching Krav Maga. Passionate about empowering students through practical self-defense techniques.",
                 YearsOfExperience = 12,
@@ -64,6 +103,7 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
                 PhoneNumber = "+353871234502",
                 Role = UserRole.Instructor,
                 IsActive = true,
+                PasswordHash = passwordHash,
                 Specialization = "Boxing & HIIT",
                 Bio = "Professional boxer turned fitness instructor. Specializes in high-intensity boxing workouts that build strength and endurance.",
                 YearsOfExperience = 8,
@@ -82,6 +122,7 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
                 PhoneNumber = "+353871234503",
                 Role = UserRole.Instructor,
                 IsActive = true,
+                PasswordHash = passwordHash,
                 Specialization = "Yoga & Pilates",
                 Bio = "Certified yoga and Pilates instructor focused on mindfulness and core strength. Creates a welcoming environment for all fitness levels.",
                 YearsOfExperience = 6,
@@ -103,6 +144,8 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
                 PhoneNumber = "+353871234601",
                 Role = UserRole.Student,
                 IsActive = true,
+                PasswordHash = passwordHash,
+                StudentNumber = "STU-2024-001",
                 MembershipStartDate = DateTime.UtcNow.AddMonths(-3),
                 MembershipEndDate = DateTime.UtcNow.AddMonths(9),
                 EmergencyContact = "Jane Doe - Wife - +353871234602",
@@ -120,6 +163,8 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
                 PhoneNumber = "+353871234603",
                 Role = UserRole.Student,
                 IsActive = true,
+                PasswordHash = passwordHash,
+                StudentNumber = "STU-2024-002",
                 MembershipStartDate = DateTime.UtcNow.AddMonths(-1),
                 MembershipEndDate = null, // Ongoing membership
                 EmergencyContact = "Tom Smith - Brother - +353871234604",
@@ -137,6 +182,8 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
                 PhoneNumber = "+353871234605",
                 Role = UserRole.Student,
                 IsActive = true,
+                PasswordHash = passwordHash,
+                StudentNumber = "STU-2024-003",
                 MembershipStartDate = DateTime.UtcNow,
                 MembershipEndDate = DateTime.UtcNow.AddYears(1),
                 EmergencyContact = "Lisa Walsh - Mother - +353871234606",
@@ -158,10 +205,11 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
                 Title = "Morning Krav Maga Fundamentals",
                 Description = "Learn the basics of Krav Maga self-defense. Perfect for beginners. Focus on strikes, blocks, and situational awareness.",
                 ClassType = ClassType.KravMaga,
-                StartDateTime = DateTime.UtcNow.Date.AddDays(1).AddHours(9), // Tomorrow at 9 AM
-                EndDateTime = DateTime.UtcNow.Date.AddDays(1).AddHours(10), // 1 hour class
+                StartDateTime = DateTime.UtcNow.Date.AddDays(1).AddHours(9),
+                EndDateTime = DateTime.UtcNow.Date.AddDays(1).AddHours(10),
                 MaxCapacity = 15,
-                Location = "Studio A",
+                LocationId = locationMainDojo.Id,
+                LocationName = locationMainDojo.Name,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -173,10 +221,11 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
                 Title = "Boxing HIIT Blast",
                 Description = "High-intensity boxing workout combining cardio and strength. Burn calories and build power!",
                 ClassType = ClassType.Boxing,
-                StartDateTime = DateTime.UtcNow.Date.AddDays(1).AddHours(18), // Tomorrow at 6 PM
+                StartDateTime = DateTime.UtcNow.Date.AddDays(1).AddHours(18),
                 EndDateTime = DateTime.UtcNow.Date.AddDays(1).AddHours(19),
                 MaxCapacity = 20,
-                Location = "Main Hall",
+                LocationId = locationCommunity.Id,
+                LocationName = locationCommunity.Name,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -188,10 +237,11 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
                 Title = "Sunset Yoga Flow",
                 Description = "Relaxing vinyasa flow yoga session. Suitable for all levels. Bring your own mat.",
                 ClassType = ClassType.Yoga,
-                StartDateTime = DateTime.UtcNow.Date.AddDays(2).AddHours(19), // Day after tomorrow at 7 PM
+                StartDateTime = DateTime.UtcNow.Date.AddDays(2).AddHours(19),
                 EndDateTime = DateTime.UtcNow.Date.AddDays(2).AddHours(20),
                 MaxCapacity = 12,
-                Location = "Studio B",
+                LocationId = locationSportsHall.Id,
+                LocationName = locationSportsHall.Name,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -203,10 +253,11 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
                 Title = "Advanced Krav Maga Techniques",
                 Description = "Advanced self-defense techniques including ground fighting and weapon defense. Prerequisite: 3+ months training.",
                 ClassType = ClassType.KravMaga,
-                StartDateTime = DateTime.UtcNow.Date.AddDays(3).AddHours(10), // 3 days from now
+                StartDateTime = DateTime.UtcNow.Date.AddDays(3).AddHours(10),
                 EndDateTime = DateTime.UtcNow.Date.AddDays(3).AddHours(11).AddMinutes(30),
                 MaxCapacity = 10,
-                Location = "Studio A",
+                LocationId = locationMainDojo.Id,
+                LocationName = locationMainDojo.Name,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -304,13 +355,77 @@ namespace ActiveWorkoutClasses.Infrastructure.Data
             context.ClassRegistrations.AddRange(registration1, registration2, registration3, registration4);
             await context.SaveChangesAsync();
 
+            // ========================================
+            // 7. Seed Progress Records
+            // ========================================
+            var progress1 = new ProgressRecord
+            {
+                StudentId = student1.Id,
+                RecordedByInstructorId = instructor1.Id,
+                Discipline = ClassType.KravMaga,
+                SkillLevel = "Yellow Belt",
+                PromotionDate = DateTime.UtcNow.AddMonths(-2),
+                Notes = "Good progress, strong striking technique",
+                CreatedAt = DateTime.UtcNow.AddMonths(-2)
+            };
+            var progress2 = new ProgressRecord
+            {
+                StudentId = student2.Id,
+                RecordedByInstructorId = instructor3.Id,
+                Discipline = ClassType.Yoga,
+                SkillLevel = "Intermediate",
+                PromotionDate = DateTime.UtcNow.AddMonths(-1),
+                Notes = "Excellent flexibility and breath control",
+                CreatedAt = DateTime.UtcNow.AddMonths(-1)
+            };
+            context.ProgressRecords.AddRange(progress1, progress2);
+            await context.SaveChangesAsync();
+
+            // ========================================
+            // 8. Seed a Grading Event
+            // ========================================
+            var gradingEvent = new GradingEvent
+            {
+                Title = "Spring Krav Maga Grading 2025",
+                Description = "Belt grading for students of all levels. Minimum requirements apply.",
+                EventDate = DateTime.UtcNow.AddMonths(1),
+                LocationId = locationMainDojo.Id,
+                ClassType = ClassType.KravMaga,
+                IsPublished = true,
+                ResultsPublished = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            context.GradingEvents.Add(gradingEvent);
+            await context.SaveChangesAsync();
+
+            var rule1 = new EligibilityRule
+            {
+                GradingEventId = gradingEvent.Id,
+                RuleType = EligibilityRuleType.MinAttendanceCount,
+                IntValue = 10,
+                Description = "Must have attended at least 10 classes"
+            };
+            var rule2 = new EligibilityRule
+            {
+                GradingEventId = gradingEvent.Id,
+                RuleType = EligibilityRuleType.MinDaysSinceRegistration,
+                DaysValue = 60,
+                Description = "Must have been a member for at least 60 days"
+            };
+            context.EligibilityRules.AddRange(rule1, rule2);
+            await context.SaveChangesAsync();
+
             Console.WriteLine("[+] Database seeded successfully!");
+            Console.WriteLine($"   - 3 Locations");
             Console.WriteLine($"   - 1 Admin user");
             Console.WriteLine($"   - 3 Instructors");
-            Console.WriteLine($"   - 3 Students");
-            Console.WriteLine($"   - 4 Workout classes");
+            Console.WriteLine($"   - 3 Students (with StudentNumbers STU-2024-001 to 003)");
+            Console.WriteLine($"   - 4 Workout classes (linked to locations)");
             Console.WriteLine($"   - 5 Instructor assignments");
             Console.WriteLine($"   - 4 Student registrations");
+            Console.WriteLine($"   - 2 Progress records");
+            Console.WriteLine($"   - 1 Grading event with 2 eligibility rules");
+            Console.WriteLine($"   - All users: password = Password123!");
         }
     }
 }

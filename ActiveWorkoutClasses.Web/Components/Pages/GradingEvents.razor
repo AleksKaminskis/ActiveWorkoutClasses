@@ -1,0 +1,196 @@
+@page "/grading-events"
+@attribute [Authorize(Roles = "Admin,Instructor")]
+
+@using ActiveWorkoutClasses.Application.DTOs.Grading
+@using ActiveWorkoutClasses.Domain.Enums
+
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Grading Events</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-6">
+    <MudText Typo="Typo.h4" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;">
+        Grading Events
+    </MudText>
+    <AuthorizeView Roles="Admin">
+        <Authorized>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@CreateNew">
+                New Event
+            </MudButton>
+        </Authorized>
+    </AuthorizeView>
+</MudStack>
+
+@if (_isLoading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    <MudTable Items="@_events" Hover="true" Elevation="3">
+        <HeaderContent>
+            <MudTh>Title</MudTh>
+            <MudTh>Discipline</MudTh>
+            <MudTh>Date</MudTh>
+            <MudTh>Candidates</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Title</MudTd>
+            <MudTd>@context.ClassTypeName</MudTd>
+            <MudTd>@context.EventDate.ToString("dd MMM yyyy")</MudTd>
+            <MudTd>@context.CandidateCount</MudTd>
+            <MudTd>
+                @if (context.ResultsPublished)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success">Results Published</MudChip>
+                }
+                else if (context.IsPublished)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info">Published</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default">Draft</MudChip>
+                }
+            </MudTd>
+            <MudTd>
+                <MudStack Row="true" Spacing="1">
+                    <MudIconButton Icon="@Icons.Material.Filled.People"
+                                   Size="Size.Small"
+                                   Title="View Candidates"
+                                   Href="@($"/grading-events/{context.Id}/candidates")" />
+                    <AuthorizeView Roles="Admin" Context="authCtx">
+                        <Authorized>
+                            @if (!context.IsPublished)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Publish"
+                                               Size="Size.Small"
+                                               Color="Color.Primary"
+                                               Title="Publish"
+                                               OnClick="@(() => PublishEvent(context.Id))" />
+                            }
+                        </Authorized>
+                    </AuthorizeView>
+                </MudStack>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4" Color="Color.Secondary">No grading events yet.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+}
+
+@if (_showCreate)
+{
+    <MudPaper Class="pa-6 mb-6" Elevation="4">
+        <MudText Typo="Typo.h6" Class="mb-4">New Grading Event</MudText>
+        <MudForm @ref="_createForm">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_newEvent.Title" Label="Title" Required="true"
+                                  RequiredError="Title is required" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudSelect T="ClassType" @bind-Value="_newEvent.ClassType" Label="Discipline" Variant="Variant.Outlined">
+                        @foreach (var type in Enum.GetValues<ClassType>())
+                        {
+                            <MudSelectItem Value="@type">@type</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudDatePicker @bind-Date="_eventDate" Label="Event Date" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_newEvent.Description" Label="Description"
+                                  Lines="2" Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+            <MudStack Row="true" Spacing="2" Class="mt-4">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           Disabled="_isSaving" OnClick="@SaveNewEvent">
+                    @if (_isSaving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                    Create Event
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="@(() => _showCreate = false)">Cancel</MudButton>
+            </MudStack>
+        </MudForm>
+    </MudPaper>
+}
+
+@code {
+
+    private bool _isLoading = true;
+    private bool _showCreate;
+    private bool _isSaving;
+    private List<GradingEventDto> _events = new();
+    private MudForm? _createForm;
+    private CreateGradingEventDto _newEvent = new();
+    private DateTime? _eventDate;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEvents();
+    }
+
+    private async Task LoadEvents()
+    {
+        try
+        {
+            var result = await Api.GetAsync<List<GradingEventDto>>("api/grading");
+            _events = result?.OrderByDescending(e => e.EventDate).ToList() ?? new();
+        }
+        catch { Snackbar.Add("Failed to load grading events", Severity.Error); }
+        finally { _isLoading = false; }
+    }
+
+    private void CreateNew()
+    {
+        _newEvent = new();
+        _eventDate = null;
+        _showCreate = true;
+    }
+
+    private async Task SaveNewEvent()
+    {
+        if (_createForm is null) return;
+        await _createForm.ValidateAsync();
+        if (!_createForm.IsValid) return;
+
+        if (_eventDate.HasValue)
+            _newEvent.EventDate = _eventDate.Value;
+
+        _isSaving = true;
+        try
+        {
+            var result = await Api.PostAsync<GradingEventDto>("api/grading", _newEvent);
+            _events.Insert(0, result!);
+            _showCreate = false;
+            Snackbar.Add("Grading event created", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to create event: {ex.Message}", Severity.Error);
+        }
+        finally { _isSaving = false; }
+    }
+
+    private async Task PublishEvent(int id)
+    {
+        var result = await Api.PostAsync<object>($"api/grading/{id}/publish", new { });
+        if (result is not null)
+        {
+            await LoadEvents();
+            Snackbar.Add("Event published", Severity.Success);
+        }
+        else
+            Snackbar.Add("Failed to publish event", Severity.Error);
+    }
+
+}

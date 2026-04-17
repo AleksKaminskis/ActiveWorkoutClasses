@@ -1,33 +1,75 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@inject IAuthStateService AuthState
+@inject NavigationManager Nav
 
-@* Required *@
-<MudThemeProvider />
+<MudThemeProvider Theme="AppTheme.FitnessTheme" @bind-IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
-
-@* Needed for dialogs *@
 <MudDialogProvider />
-
-@* Needed for snackbars *@
 <MudSnackbarProvider />
 
-<div class="page">
-    <div class="sidebar">
+<MudLayout>
+
+    <MudAppBar Elevation="2" Dense="true">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                       Color="Color.Inherit"
+                       Edge="Edge.Start"
+                       OnClick="@ToggleDrawer" />
+
+        <MudText Typo="Typo.h6"
+                 Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:1px;color:#FF6B35;">
+            ACTIVE WORKOUT
+        </MudText>
+
+        <MudSpacer />
+
+        <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                       Color="Color.Inherit"
+                       OnClick="@ToggleDarkMode"
+                       Title="Toggle dark mode" />
+
+        <AuthorizeView>
+            <Authorized>
+                <MudChip T="string" Color="Color.Primary" Size="Size.Small" Class="mr-2">
+                    @context.User.Identity?.Name
+                </MudChip>
+                <MudIconButton Icon="@Icons.Material.Filled.Logout"
+                               Color="Color.Inherit"
+                               OnClick="@Logout"
+                               Title="Sign out" />
+            </Authorized>
+            <NotAuthorized>
+                <MudButton Href="/login" Color="Color.Primary" Variant="Variant.Filled" Size="Size.Small">
+                    Sign In
+                </MudButton>
+            </NotAuthorized>
+        </AuthorizeView>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="2" Variant="DrawerVariant.Responsive" ClipMode="DrawerClipMode.Always">
         <NavMenu />
-    </div>
+    </MudDrawer>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="#">Login</a>
-        </div>
-
-        <article class="content px-4">
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-4">
             @Body
-        </article>
-    </main>
-</div>
+        </MudContainer>
+    </MudMainContent>
 
-<div id="blazor-error-ui">
-    An unhandled error has occurred.
-    <a href="" class="reload">Reload</a>
-    <a class="dismiss">🗙</a>
-</div>
+</MudLayout>
+
+@code {
+
+    private bool _drawerOpen = true;
+    private bool _isDarkMode = true;
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    private void ToggleDarkMode() => _isDarkMode = !_isDarkMode;
+
+    private async Task Logout()
+    {
+        await AuthState.LogoutAsync();
+        Nav.NavigateTo("/login");
+    }
+
+}

@@ -1,0 +1,179 @@
+@page "/admin/schedules"
+@attribute [Authorize(Roles = "Admin,Instructor")]
+
+@using ActiveWorkoutClasses.Application.DTOs.Schedules
+@using ActiveWorkoutClasses.Domain.Enums
+
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>Schedules — Admin</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-6">
+    <MudText Typo="Typo.h4" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;">
+        Recurring Schedules
+    </MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="@ShowCreateForm">
+        New Schedule
+    </MudButton>
+</MudStack>
+
+@if (_showForm)
+{
+    <MudPaper Class="pa-6 mb-6" Elevation="4">
+        <MudText Typo="Typo.h6" Class="mb-4">New Recurring Schedule</MudText>
+        <MudForm @ref="_form">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_formModel.Title" Label="Title" Required="true" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudSelect T="ClassType" @bind-Value="_formModel.ClassType" Label="Discipline" Variant="Variant.Outlined">
+                        @foreach (var t in Enum.GetValues<ClassType>())
+                        {
+                            <MudSelectItem Value="@t">@t</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudSelect T="DayOfWeek" @bind-Value="_formModel.DayOfWeek" Label="Day" Variant="Variant.Outlined">
+                        @foreach (var d in Enum.GetValues<DayOfWeek>())
+                        {
+                            <MudSelectItem Value="@d">@d</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="2">
+                    <MudTimePicker @bind-Time="_startTime" Label="Start Time" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="2">
+                    <MudTimePicker @bind-Time="_endTime" Label="End Time" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="2">
+                    <MudNumericField T="int" @bind-Value="_formModel.MaxCapacity" Label="Max Capacity" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudNumericField T="int" @bind-Value="_formModel.GeneratedWeeksAhead" Label="Generate (weeks)" Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+            <MudStack Row="true" Spacing="2" Class="mt-4">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@Save">Create</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="@CancelForm">Cancel</MudButton>
+            </MudStack>
+        </MudForm>
+    </MudPaper>
+}
+
+@if (_isLoading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    <MudTable Items="@_schedules" Hover="true" Elevation="3">
+        <HeaderContent>
+            <MudTh>Title</MudTh>
+            <MudTh>Discipline</MudTh>
+            <MudTh>Day</MudTh>
+            <MudTh>Time</MudTh>
+            <MudTh>Capacity</MudTh>
+            <MudTh>Generated</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Title</MudTd>
+            <MudTd>@context.ClassTypeName</MudTd>
+            <MudTd>@context.DayOfWeek</MudTd>
+            <MudTd>@context.StartTime — @context.EndTime</MudTd>
+            <MudTd>@context.MaxCapacity</MudTd>
+            <MudTd>@context.GeneratedClassCount classes</MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small"
+                         Color="@(context.IsActive ? Color.Success : Color.Default)">
+                    @(context.IsActive ? "Active" : "Inactive")
+                </MudChip>
+            </MudTd>
+            <MudTd>
+                <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                           OnClick="@(() => Materialise(context.Id))">
+                    Generate
+                </MudButton>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4" Color="Color.Secondary">No schedules yet.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+}
+
+@code {
+
+    private bool _isLoading = true;
+    private bool _showForm;
+    private MudForm? _form;
+    private CreateRecurringScheduleDto _formModel = new();
+    private TimeSpan? _startTime;
+    private TimeSpan? _endTime;
+    private List<RecurringScheduleDto> _schedules = new();
+
+    protected override async Task OnInitializedAsync() => await LoadSchedules();
+
+    private async Task LoadSchedules()
+    {
+        try
+        {
+            var result = await Api.GetAsync<List<RecurringScheduleDto>>("api/schedules");
+            _schedules = result ?? new();
+        }
+        catch { Snackbar.Add("Failed to load schedules", Severity.Error); }
+        finally { _isLoading = false; }
+    }
+
+    private void ShowCreateForm()
+    {
+        _formModel = new() { ValidFrom = DateOnly.FromDateTime(DateTime.Today) };
+        _startTime = null;
+        _endTime = null;
+        _showForm = true;
+    }
+
+    private void CancelForm() => _showForm = false;
+
+    private async Task Save()
+    {
+        if (_form is null) return;
+        await _form.ValidateAsync();
+        if (!_form.IsValid) return;
+
+        if (_startTime.HasValue)
+            _formModel.StartTime = TimeOnly.FromTimeSpan(_startTime.Value);
+        if (_endTime.HasValue)
+            _formModel.EndTime = TimeOnly.FromTimeSpan(_endTime.Value);
+
+        var result = await Api.PostAsync<RecurringScheduleDto>("api/schedules", _formModel);
+        if (result is not null)
+        {
+            _schedules.Add(result);
+            _showForm = false;
+            Snackbar.Add("Schedule created and classes generated", Severity.Success);
+        }
+        else
+            Snackbar.Add("Failed to create schedule", Severity.Error);
+    }
+
+    private async Task Materialise(int id)
+    {
+        var result = await Api.PostAsync<object>($"api/schedules/{id}/materialise", new { });
+        if (result is not null)
+        {
+            await LoadSchedules();
+            Snackbar.Add("Classes generated successfully", Severity.Success);
+        }
+        else
+            Snackbar.Add("Failed to generate classes", Severity.Error);
+    }
+
+}

@@ -1,0 +1,125 @@
+@using ActiveWorkoutClasses.Application.DTOs.Registrations
+@using ActiveWorkoutClasses.Application.DTOs.Progress
+
+@inject IApiClient Api
+@inject IAuthStateService AuthState
+
+<MudText Typo="Typo.h4" Class="mb-6"
+         Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;">
+    Welcome back, @AuthState.FullName
+</MudText>
+
+<MudGrid>
+
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="pa-4" Elevation="3">
+            <MudStack AlignItems="AlignItems.Center">
+                <MudIcon Icon="@Icons.Material.Filled.Event" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.h4" Style="font-weight:700;">@_upcomingCount</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Upcoming Classes</MudText>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="pa-4" Elevation="3">
+            <MudStack AlignItems="AlignItems.Center">
+                <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Color="Color.Info" Size="Size.Large" />
+                <MudText Typo="Typo.h4" Style="font-weight:700;">@_progressCount</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Progress Records</MudText>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="pa-4" Elevation="3">
+            <MudStack AlignItems="AlignItems.Center">
+                <MudIcon Icon="@Icons.Material.Filled.Badge" Color="Color.Warning" Size="Size.Large" />
+                <MudText Typo="Typo.body1" Style="font-weight:700;">@(AuthState.StudentNumber ?? "—")</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Student Number</MudText>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="3">
+            <MudText Typo="Typo.h6" Class="mb-3">Quick Actions</MudText>
+            <MudStack Spacing="2">
+                <MudButton Href="/classes" StartIcon="@Icons.Material.Filled.Search"
+                           Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true">
+                    Browse Classes
+                </MudButton>
+                <MudButton Href="/check-in" StartIcon="@Icons.Material.Filled.QrCodeScanner"
+                           Variant="Variant.Outlined" Color="Color.Secondary" FullWidth="true">
+                    Check In to Class
+                </MudButton>
+                <MudButton Href="/my-progress" StartIcon="@Icons.Material.Filled.TrendingUp"
+                           Variant="Variant.Outlined" FullWidth="true">
+                    View My Progress
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="3">
+            <MudText Typo="Typo.h6" Class="mb-3">Upcoming Classes</MudText>
+            @if (_isLoading)
+            {
+                <MudProgressLinear Indeterminate="true" />
+            }
+            else if (_upcomingClasses.Count == 0)
+            {
+                <MudText Color="Color.Secondary">No upcoming classes registered.</MudText>
+            }
+            else
+            {
+                @foreach (var reg in _upcomingClasses.Take(3))
+                {
+                    <MudPaper Class="pa-2 mb-2" Elevation="1">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.body2">@reg.ClassName</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @reg.ClassStartTime.ToString("ddd dd MMM HH:mm")
+                            </MudText>
+                        </MudStack>
+                    </MudPaper>
+                }
+            }
+        </MudPaper>
+    </MudItem>
+
+</MudGrid>
+
+@code {
+
+    private bool _isLoading = true;
+    private int _upcomingCount;
+    private int _progressCount;
+    private List<ClassRegistrationDto> _upcomingClasses = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var registrations = await Api.GetAsync<List<ClassRegistrationDto>>("api/registrations/my");
+            if (registrations is not null)
+            {
+                _upcomingClasses = registrations
+                    .Where(r => r.ClassStartTime > DateTime.UtcNow)
+                    .OrderBy(r => r.ClassStartTime)
+                    .ToList();
+                _upcomingCount = _upcomingClasses.Count;
+            }
+
+            var progress = await Api.GetAsync<List<ProgressRecordDto>>("api/progress/me");
+            _progressCount = progress?.Count ?? 0;
+        }
+        catch { }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+}

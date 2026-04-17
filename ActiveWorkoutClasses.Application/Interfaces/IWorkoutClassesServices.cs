@@ -11,7 +11,7 @@ namespace ActiveWorkoutClasses.Application.Interfaces
         /// <summary>
         /// Get all active workout classes
         /// </summary>
-        Task<List<WorkoutClassDto>> GetAllClassesAsync();
+        Task<List<WorkoutClassDto>> GetAllClassesAsync(bool includeInactive = false);
 
         /// <summary>
         /// Get upcoming classes (starting from now)

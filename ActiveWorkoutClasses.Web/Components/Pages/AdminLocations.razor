@@ -1,0 +1,188 @@
+@page "/admin/locations"
+@attribute [Authorize(Roles = "Admin")]
+
+@using ActiveWorkoutClasses.Application.DTOs.Locations
+
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>Locations — Admin</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-6">
+    <MudText Typo="Typo.h4" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;">
+        Locations
+    </MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="@ShowCreateForm">
+        Add Location
+    </MudButton>
+</MudStack>
+
+@if (_showForm)
+{
+    <MudPaper Class="pa-6 mb-6" Elevation="4">
+        <MudText Typo="Typo.h6" Class="mb-4">@(_editId.HasValue ? "Edit Location" : "New Location")</MudText>
+        <MudForm @ref="_form">
+            <MudGrid>
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_formModel.Name" Label="Name" Required="true" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_formModel.City" Label="City" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudNumericField T="int" @bind-Value="_formModel.Capacity" Label="Capacity" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_formModel.Address" Label="Address" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_formModel.Notes" Label="Notes" Lines="2" Variant="Variant.Outlined" />
+                </MudItem>
+            </MudGrid>
+            <MudStack Row="true" Spacing="2" Class="mt-4">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@Save">Save</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="@CancelForm">Cancel</MudButton>
+            </MudStack>
+        </MudForm>
+    </MudPaper>
+}
+
+@if (_isLoading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    <MudTable Items="@_locations" Hover="true" Elevation="3">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>City</MudTh>
+            <MudTh>Address</MudTh>
+            <MudTh>Capacity</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+            <MudTd>@context.City</MudTd>
+            <MudTd>@context.Address</MudTd>
+            <MudTd>@context.Capacity</MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small"
+                         Color="@(context.IsActive ? Color.Success : Color.Default)">
+                    @(context.IsActive ? "Active" : "Inactive")
+                </MudChip>
+            </MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                               Size="Size.Small"
+                               OnClick="@(() => EditLocation(context))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                               Size="Size.Small"
+                               Color="Color.Error"
+                               OnClick="@(() => DeleteLocation(context.Id))" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4" Color="Color.Secondary">No locations yet.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+}
+
+@code {
+
+    private bool _isLoading = true;
+    private bool _showForm;
+    private int? _editId;
+    private MudForm? _form;
+    private CreateLocationDto _formModel = new();
+    private List<LocationDto> _locations = new();
+
+    protected override async Task OnInitializedAsync() => await LoadLocations();
+
+    private async Task LoadLocations()
+    {
+        try
+        {
+            var result = await Api.GetAsync<List<LocationDto>>("api/locations");
+            _locations = result ?? new();
+        }
+        catch { Snackbar.Add("Failed to load locations", Severity.Error); }
+        finally { _isLoading = false; }
+    }
+
+    private void ShowCreateForm()
+    {
+        _editId = null;
+        _formModel = new();
+        _showForm = true;
+    }
+
+    private void EditLocation(LocationDto loc)
+    {
+        _editId = loc.Id;
+        _formModel = new CreateLocationDto
+        {
+            Name = loc.Name,
+            Address = loc.Address,
+            City = loc.City,
+            Capacity = loc.Capacity,
+            Notes = loc.Notes
+        };
+        _showForm = true;
+    }
+
+    private void CancelForm() => _showForm = false;
+
+    private async Task Save()
+    {
+        if (_form is null) return;
+        await _form.ValidateAsync();
+        if (!_form.IsValid) return;
+
+        if (_editId.HasValue)
+        {
+            var updateDto = new UpdateLocationDto
+            {
+                Name = _formModel.Name,
+                Address = _formModel.Address,
+                City = _formModel.City,
+                Capacity = _formModel.Capacity,
+                Notes = _formModel.Notes,
+                IsActive = true
+            };
+            var result = await Api.PutAsync<LocationDto>($"api/locations/{_editId}", updateDto);
+            if (result is not null)
+            {
+                await LoadLocations();
+                _showForm = false;
+                Snackbar.Add("Location updated", Severity.Success);
+            }
+        }
+        else
+        {
+            var result = await Api.PostAsync<LocationDto>("api/locations", _formModel);
+            if (result is not null)
+            {
+                _locations.Add(result);
+                _showForm = false;
+                Snackbar.Add("Location created", Severity.Success);
+            }
+        }
+    }
+
+    private async Task DeleteLocation(int id)
+    {
+        var success = await Api.DeleteAsync($"api/locations/{id}");
+        if (success)
+        {
+            _locations.RemoveAll(l => l.Id == id);
+            Snackbar.Add("Location deleted", Severity.Success);
+        }
+        else
+            Snackbar.Add("Failed to delete location", Severity.Error);
+    }
+
+}

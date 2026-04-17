@@ -1,0 +1,86 @@
+@page "/my-progress"
+@attribute [Authorize(Roles = "Student")]
+
+@using ActiveWorkoutClasses.Application.DTOs.Progress
+
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>My Progress</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-6" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;">
+    My Progress
+</MudText>
+
+@if (_isLoading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_summary is null)
+{
+    <MudAlert Severity="Severity.Info">No progress records found.</MudAlert>
+}
+else
+{
+    @if (_summary.CurrentLevelByDiscipline.Count > 0)
+    {
+        <MudText Typo="Typo.h6" Class="mb-3">Current Levels</MudText>
+        <MudGrid Class="mb-6">
+            @foreach (var (discipline, record) in _summary.CurrentLevelByDiscipline)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudPaper Class="pa-4" Elevation="3">
+                        <MudStack AlignItems="AlignItems.Center">
+                            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Color="Color.Warning" Size="Size.Large" />
+                            <MudText Typo="Typo.h6" Style="font-weight:700;">@record.SkillLevel</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@discipline</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                Since @record.PromotionDate.ToString("dd MMM yyyy")
+                            </MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+
+    <MudText Typo="Typo.h6" Class="mb-3">Progress History</MudText>
+    <MudTable Items="@_summary.AllRecords" Hover="true" Dense="true">
+        <HeaderContent>
+            <MudTh>Discipline</MudTh>
+            <MudTh>Level Achieved</MudTh>
+            <MudTh>Date</MudTh>
+            <MudTh>Instructor</MudTh>
+            <MudTh>Notes</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.DisciplineName</MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small" Color="Color.Primary">@context.SkillLevel</MudChip>
+            </MudTd>
+            <MudTd>@context.PromotionDate.ToString("dd MMM yyyy")</MudTd>
+            <MudTd>@(context.RecordedByInstructor ?? "—")</MudTd>
+            <MudTd>@(context.Notes ?? "—")</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4" Color="Color.Secondary">No progress records yet.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+}
+
+@code {
+
+    private bool _isLoading = true;
+    private StudentProgressSummaryDto? _summary;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _summary = await Api.GetAsync<StudentProgressSummaryDto>("api/progress/me");
+        }
+        catch { Snackbar.Add("Failed to load progress", Severity.Error); }
+        finally { _isLoading = false; }
+    }
+
+}

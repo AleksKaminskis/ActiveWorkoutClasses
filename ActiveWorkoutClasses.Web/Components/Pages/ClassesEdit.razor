@@ -1,351 +1,315 @@
-﻿@page "/classes/edit/{Id:guid}"
+@page "/classes/edit/{Id:guid}"
+@attribute [Authorize(Roles = "Admin,Instructor")]
 
-@using ActiveWorkoutClasses.Application.DTOs.Classes
-@using ActiveWorkoutClasses.Domain.Enums
-@using MudBlazor
-
-@inject HttpClient Http
-@inject NavigationManager Navigation
+@inject IApiClient Api
+@inject NavigationManager Nav
 @inject ISnackbar Snackbar
 
-<PageTitle>Edit Class</PageTitle>
+<PageTitle>Edit Class — Active Workout</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">Edit Class</MudText>
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-6">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="@(() => Nav.NavigateTo("/classes"))" />
+    <MudText Typo="Typo.h4" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;">
+        Edit Class
+    </MudText>
+</MudStack>
 
-@if (isLoading)
+@if (_isLoading)
 {
-    <MudProgressCircular Indeterminate="true" />
+    <MudProgressLinear Indeterminate="true" />
 }
 else
 {
-    <MudPaper Class="pa-6">
-
-        <MudForm @ref="form">
-
+    <MudPaper Class="pa-6" Elevation="3">
+        <MudForm @ref="_form">
             <MudGrid>
 
-                <MudItem xs="12" md="4">
-                    <MudTextField Label="Title"
-                                  @bind-Value="model.Title"
+                <MudItem xs="12" md="5">
+                    <MudTextField @bind-Value="_model.Title"
+                                  Label="Title"
                                   Required="true"
-                                  RequiredError="Title is required" />
+                                  RequiredError="Title is required"
+                                  Variant="Variant.Outlined" />
                 </MudItem>
 
                 <MudItem xs="12" md="4">
-                    <MudSelect T="ClassType"
-                               Label="Class Type"
-                               @bind-Value="model.ClassType"
-                               Required="true">
-
-                        @foreach (var type in Enum.GetValues<ClassType>())
+                    <MudSelect T="ClassType" @bind-Value="_model.ClassType"
+                               Label="Discipline"
+                               Required="true"
+                               Variant="Variant.Outlined">
+                        @foreach (var t in Enum.GetValues<ClassType>())
                         {
-                            <MudSelectItem Value="@type">@type</MudSelectItem>
+                            <MudSelectItem Value="@t">@t</MudSelectItem>
                         }
-
                     </MudSelect>
                 </MudItem>
 
-                <MudItem xs="12" md="4">
-                    <MudSwitch T="bool"
+                <MudItem xs="12" md="3" Class="d-flex align-center">
+                    <MudSwitch T="bool" @bind-Value="_model.IsActive"
                                Label="Active"
-                               Color="Color.Success"
-                               @bind-Checked="model.IsActive" />
+                               Color="Color.Success" />
                 </MudItem>
 
                 <MudItem xs="12">
-                    <MudTextField Label="Description"
+                    <MudTextField @bind-Value="_model.Description"
+                                  Label="Description"
                                   Lines="3"
-                                  @bind-Value="model.Description" />
+                                  Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudDatePicker @bind-Date="_startDate" Label="Start Date" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudTimePicker @bind-Time="_startTime" Label="Start Time" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudDatePicker @bind-Date="_endDate" Label="End Date" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="3">
+                    <MudTimePicker @bind-Time="_endTime" Label="End Time" Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudNumericField T="int" @bind-Value="_model.MaxCapacity"
+                                     Label="Max Capacity"
+                                     Min="1"
+                                     Required="true"
+                                     Variant="Variant.Outlined" />
+                </MudItem>
+
+                <MudItem xs="12" md="8">
+                    <MudSelect T="LocationDto?" Value="_selectedLocation"
+                               ValueChanged="OnLocationChanged"
+                               Label="Location" Variant="Variant.Outlined" Clearable="true"
+                               ToStringFunc="@(l => l?.Name)">
+                        @foreach (var loc in _locations)
+                        {
+                            <MudSelectItem Value="@((LocationDto?)loc)">@loc.Name — @loc.City</MudSelectItem>
+                        }
+                    </MudSelect>
                 </MudItem>
 
                 <MudItem xs="12">
-
                     <MudAutocomplete T="InstructorSummaryDto"
-                                     @ref="instructorAuto"
+                                     @ref="_instructorAuto"
                                      Label="Add Instructor"
+                                     Variant="Variant.Outlined"
                                      Dense="true"
                                      Clearable="true"
                                      ToStringFunc="@(i => i?.FullName)"
                                      SearchFunc="SearchInstructors"
                                      ValueChanged="AddInstructor"
                                      ResetValueOnEmptyText="true" />
-
                 </MudItem>
 
-                <MudItem xs="12">
+                @if (_selectedInstructorIds.Any())
+                {
+                    <MudItem xs="12">
+                        <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
+                            @foreach (var id in _selectedInstructorIds)
+                            {
+                                var name = _instructors.FirstOrDefault(i => i.Id == id)?.FullName ?? id.ToString();
+                                <MudChip T="Guid" Value="@id" Text="@name"
+                                         OnClose="RemoveInstructor"
+                                         Color="Color.Primary" Variant="Variant.Filled" />
+                            }
+                        </MudStack>
+                    </MudItem>
 
-                    <MudStack Row="true" Spacing="1">
-                        @foreach (var instructorId in selectedInstructorIds)
-                        {
-                            var instructor = instructors.FirstOrDefault(i => i.Id == instructorId);
-
-                            <MudChip T="Guid"
-                                     Value="@instructorId"
-                                     Text="@instructor?.FullName"
-                                     OnClose="RemoveInstructor"
-                                     Closeable="true"
-                                     Color="Color.Primary"
-                                     Variant="Variant.Filled" />
-                        }
-                    </MudStack>
-
-                </MudItem>
-
-                <MudItem xs="12" md="4">
-
-                    <MudSelect T="Guid ?"
-                               Label="Primary Instructor"
-                               @bind-Value="primaryInstructorId"
-                               Disabled="@(selectedInstructorIds.Count < 2)"
-                               ToStringFunc="PrimaryInstructorText">
-
-                        <MudSelectItem T="Guid?" Value="@((Guid?)null)">
-                            None
-                        </MudSelectItem>
-
-                        @foreach (var instructor in instructors.Where(i => selectedInstructorIds.Contains(i.Id)))
-                        {
-                            <MudSelectItem T="Guid?" Value="@((Guid?)instructor.Id)">
-                                @instructor.FullName
-                            </MudSelectItem>
-                        }
-
-                    </MudSelect>
-
-                </MudItem>
-
-                <MudItem xs="12" md="4">
-                    <MudNumericField T="int"
-                                  Label="Max Capacity"
-                                  @bind-Value="model.MaxCapacity"
-                                  Required="true" />
-                </MudItem>
-
-                <MudItem xs="12" md="4">
-                    <MudTextField Label="Location" @bind-Value="model.Location" />
-                </MudItem>
-
-                <MudItem xs="12" md="3">
-                    <MudDatePicker Label="Start Date" @bind-Date="startDate" />
-                </MudItem>
-
-                <MudItem xs="12" md="3">
-                    <MudTimePicker Label="Start Time" @bind-Time="startTime" />
-                </MudItem>
-
-                <MudItem xs="12" md="3">
-                    <MudDatePicker Label="End Date" @bind-Date="endDate" />
-                </MudItem>
-
-                <MudItem xs="12" md="3">
-                    <MudTimePicker Label="End Time" @bind-Time="endTime" />
-                </MudItem>
+                    @if (_selectedInstructorIds.Count > 1)
+                    {
+                        <MudItem xs="12" md="5">
+                            <MudSelect T="Guid?" @bind-Value="_primaryInstructorId"
+                                       Label="Primary Instructor"
+                                       Variant="Variant.Outlined">
+                                <MudSelectItem Value="@((Guid?)null)">None</MudSelectItem>
+                                @foreach (var i in _instructors.Where(x => _selectedInstructorIds.Contains(x.Id)))
+                                {
+                                    <MudSelectItem Value="@((Guid?)i.Id)">@i.FullName</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                    }
+                }
 
             </MudGrid>
 
-            <MudDivider Class="my-4" />
+            <MudDivider Class="my-6" />
 
             <MudStack Row="true" Spacing="2">
-
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Disabled="isSaving"
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           Disabled="_isSaving"
                            OnClick="Save">
-
-                    Save
-
+                    @if (_isSaving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Save Changes
                 </MudButton>
-
                 <MudButton Variant="Variant.Outlined"
-                           OnClick="@(()=>Navigation.NavigateTo("/classes"))">
-
+                           OnClick="@(() => Nav.NavigateTo("/classes"))">
                     Cancel
-
                 </MudButton>
-
             </MudStack>
 
         </MudForm>
-
     </MudPaper>
 }
 
 @code {
 
-    [Parameter]
-    public Guid Id { get; set; }
+    [Parameter] public Guid Id { get; set; }
 
-    private MudForm? form;
+    private MudForm? _form;
+    private MudAutocomplete<InstructorSummaryDto>? _instructorAuto;
 
-    private bool isLoading = true;
-    private bool isSaving = false;
+    private UpdateWorkoutClassDto _model = new();
+    private List<InstructorSummaryDto> _instructors = new();
+    private List<LocationDto> _locations = new();
+    private LocationDto? _selectedLocation;
+    private List<Guid> _selectedInstructorIds = new();
+    private Guid? _primaryInstructorId;
 
-    private UpdateWorkoutClassDto model = new();
+    private bool _isLoading = true;
+    private bool _isSaving;
 
-    private DateTime? startDate;
-    private TimeSpan? startTime;
-
-    private DateTime? endDate;
-    private TimeSpan? endTime;
-
-    private MudAutocomplete<InstructorSummaryDto>? instructorAuto;
-
-    private List<InstructorSummaryDto> instructors = new();
-
-    private List<Guid> selectedInstructorIds = new();
-
-    private Guid? primaryInstructorId;
+    private DateTime? _startDate;
+    private TimeSpan? _startTime;
+    private DateTime? _endDate;
+    private TimeSpan? _endTime;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadInstructors();
-        await LoadClass();
+        await Task.WhenAll(LoadInstructors(), LoadLocations(), LoadClass());
     }
 
     private async Task LoadInstructors()
     {
-        var result = await Http.GetFromJsonAsync<List<InstructorSummaryDto>>("/api/Users/instructors");
+        try { _instructors = await Api.GetAsync<List<InstructorSummaryDto>>("api/users/instructors") ?? new(); }
+        catch { Snackbar.Add("Could not load instructors.", Severity.Warning); }
+    }
 
-        if (result != null)
-            instructors = result;
+    private async Task LoadLocations()
+    {
+        try
+        {
+            var all = await Api.GetAsync<List<LocationDto>>("api/locations") ?? new();
+            _locations = all.Where(l => l.IsActive).ToList();
+        }
+        catch { }
+    }
+
+    private void OnLocationChanged(LocationDto? loc)
+    {
+        _selectedLocation = loc;
+        _model.LocationId = loc?.Id;
+        _model.Location = loc?.Name ?? string.Empty;
     }
 
     private async Task LoadClass()
     {
         try
         {
-            var dto = await Http.GetFromJsonAsync<WorkoutClassDto>($"api/classes/{Id}");
+            var dto = await Api.GetAsync<WorkoutClassDto>($"api/classes/{Id}");
+            if (dto is null) { Nav.NavigateTo("/classes"); return; }
 
-            if (dto != null)
-            {
-                model.Title = dto.Title;
-                model.Description = dto.Description;
-                model.ClassType = dto.ClassType;
-                model.MaxCapacity = dto.MaxCapacity;
-                model.Location = dto.Location;
-                model.IsActive = dto.IsActive;
+            _model.Title       = dto.Title;
+            _model.Description = dto.Description;
+            _model.ClassType   = dto.ClassType;
+            _model.MaxCapacity = dto.MaxCapacity;
+            _model.Location    = dto.Location;
+            _model.IsActive    = dto.IsActive;
 
-                selectedInstructorIds = dto.Instructors.Select(i => i.Id).ToList();
+            _selectedLocation = dto.LocationId.HasValue
+                ? _locations.FirstOrDefault(l => l.Id == dto.LocationId)
+                : _locations.FirstOrDefault(l => l.Name == dto.Location);
 
-                primaryInstructorId = selectedInstructorIds.FirstOrDefault();
+            _selectedInstructorIds = dto.Instructors.Select(i => i.Id).ToList();
+            _primaryInstructorId   = dto.Instructors.FirstOrDefault(i => i.IsPrimary)?.Id
+                                     ?? _selectedInstructorIds.FirstOrDefault();
 
-                startDate = dto.StartDateTime.Date;
-                startTime = dto.StartDateTime.TimeOfDay;
-
-                endDate = dto.EndDateTime.Date;
-                endTime = dto.EndDateTime.TimeOfDay;
-            }
+            _startDate = dto.StartDateTime.Date;
+            _startTime = dto.StartDateTime.TimeOfDay;
+            _endDate   = dto.EndDateTime.Date;
+            _endTime   = dto.EndDateTime.TimeOfDay;
         }
         catch
         {
-            Snackbar.Add("Failed to load class", Severity.Error);
+            Snackbar.Add("Failed to load class.", Severity.Error);
+            Nav.NavigateTo("/classes");
         }
         finally
         {
-            isLoading = false;
+            _isLoading = false;
         }
     }
 
-    private Task<IEnumerable<InstructorSummaryDto>> SearchInstructors(string value, CancellationToken token)
+    private Task<IEnumerable<InstructorSummaryDto>> SearchInstructors(string value, CancellationToken ct)
     {
-        var available = instructors
-        .Where(i => !selectedInstructorIds.Contains(i.Id));
-
-        if (string.IsNullOrWhiteSpace(value))
-            return Task.FromResult(available);
-
-        var result = available
-        .Where(i => i.FullName.Contains(value, StringComparison.OrdinalIgnoreCase));
-
-        return Task.FromResult(result);
+        var available = _instructors.Where(i => !_selectedInstructorIds.Contains(i.Id));
+        if (!string.IsNullOrWhiteSpace(value))
+            available = available.Where(i => i.FullName.Contains(value, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(available);
     }
 
-    private async Task AddInstructor(InstructorSummaryDto instructor)
+    private async Task AddInstructor(InstructorSummaryDto? instructor)
     {
-        if (instructor == null)
-            return;
-
-        if (!selectedInstructorIds.Contains(instructor.Id))
-            selectedInstructorIds.Add(instructor.Id);
-
-        UpdatePrimaryInstructor();
-        instructorAuto?.ResetAsync();
+        if (instructor is null) return;
+        if (!_selectedInstructorIds.Contains(instructor.Id))
+            _selectedInstructorIds.Add(instructor.Id);
+        SyncPrimaryInstructor();
+        if (_instructorAuto is not null)
+            await _instructorAuto.ResetAsync();
     }
 
     private void RemoveInstructor(MudChip<Guid> chip)
     {
-        selectedInstructorIds.Remove(chip.Value);
-
-        UpdatePrimaryInstructor();
+        _selectedInstructorIds.Remove(chip.Value);
+        SyncPrimaryInstructor();
     }
 
-    private void UpdatePrimaryInstructor()
+    private void SyncPrimaryInstructor()
     {
-        if (selectedInstructorIds.Count == 0)
-        {
-            primaryInstructorId = null;
-        }
-        else if (selectedInstructorIds.Count == 1)
-        {
-            primaryInstructorId = selectedInstructorIds.First();
-        }
-        else
-        {
-            if (!primaryInstructorId.HasValue || !selectedInstructorIds.Contains(primaryInstructorId.Value))
-                primaryInstructorId = null;
-        }
-    }
-
-    private string PrimaryInstructorText(Guid? id)
-    {
-        if (!id.HasValue)
-            return "None";
-
-        var instructor = instructors.FirstOrDefault(i => i.Id == id.Value);
-
-        return instructor?.FullName ?? "";
+        if (_selectedInstructorIds.Count == 0)
+            _primaryInstructorId = null;
+        else if (_selectedInstructorIds.Count == 1)
+            _primaryInstructorId = _selectedInstructorIds[0];
+        else if (_primaryInstructorId.HasValue && !_selectedInstructorIds.Contains(_primaryInstructorId.Value))
+            _primaryInstructorId = null;
     }
 
     private async Task Save()
     {
-        await form.ValidateAsync();
+        if (_form is null) return;
+        await _form.ValidateAsync();
+        if (!_form.IsValid) return;
 
-        if (!form.IsValid)
-            return;
+        if (_startDate.HasValue && _startTime.HasValue)
+            _model.StartDateTime = _startDate.Value.Add(_startTime.Value);
+        if (_endDate.HasValue && _endTime.HasValue)
+            _model.EndDateTime = _endDate.Value.Add(_endTime.Value);
 
-        isSaving = true;
+        _model.InstructorIds      = _selectedInstructorIds;
+        _model.PrimaryInstructorId = _primaryInstructorId;
 
+        _isSaving = true;
         try
         {
-            if (startDate.HasValue && startTime.HasValue)
-                model.StartDateTime = startDate.Value.Add(startTime.Value);
-
-            if (endDate.HasValue && endTime.HasValue)
-                model.EndDateTime = endDate.Value.Add(endTime.Value);
-
-            model.InstructorIds = selectedInstructorIds;
-            model.PrimaryInstructorId = primaryInstructorId;
-
-            var response = await Http.PutAsJsonAsync($"api/classes/{Id}", model);
-
-            if (response.IsSuccessStatusCode)
-            {
-                Snackbar.Add("Class updated successfully", Severity.Success);
-                Navigation.NavigateTo("/classes");
-            }
-            else
-            {
-                Snackbar.Add("Failed to update class", Severity.Error);
-            }
+            await Api.PutAsync<WorkoutClassDto>($"api/classes/{Id}", _model);
+            Snackbar.Add("Class updated successfully.", Severity.Success);
+            Nav.NavigateTo("/classes");
         }
-        catch
+        catch (Exception ex)
         {
-            Snackbar.Add("Unexpected error while saving", Severity.Error);
+            Snackbar.Add($"Failed to save: {ex.Message}", Severity.Error);
         }
         finally
         {
-            isSaving = false;
+            _isSaving = false;
         }
     }
-
 }

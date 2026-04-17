@@ -3,20 +3,23 @@ using ActiveWorkoutClasses.Application.Interfaces;
 using ActiveWorkoutClasses.Domain.Entities;
 using ActiveWorkoutClasses.Domain.Enums;
 using ActiveWorkoutClasses.Infrastructure.Data;
+using ActiveWorkoutClasses.Infrastructure.Security;
+using ActiveWorkoutClasses.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace ActiveWorkoutClasses.Application.Services
 {
-    /// <summary>
-    /// Service for user management business logic
-    /// </summary>
     public class UserService : IUserService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IPasswordHasher _hasher;
+        private readonly StudentNumberGenerator _studentNumberGenerator;
 
-        public UserService(ApplicationDbContext context)
+        public UserService(ApplicationDbContext context, IPasswordHasher hasher, StudentNumberGenerator studentNumberGenerator)
         {
             _context = context;
+            _hasher = hasher;
+            _studentNumberGenerator = studentNumberGenerator;
         }
 
         public async Task<List<UserDto>> GetAllUsersAsync()
@@ -129,12 +132,16 @@ namespace ActiveWorkoutClasses.Application.Services
                     var student = new Student
                     {
                         Id = Guid.NewGuid(),
-                        Email = createDto.Email,
+                        Email = createDto.Email.ToLowerInvariant(),
                         FirstName = createDto.FirstName,
                         LastName = createDto.LastName,
                         PhoneNumber = createDto.PhoneNumber,
                         Role = UserRole.Student,
                         IsActive = true,
+                        PasswordHash = string.IsNullOrEmpty(createDto.Password)
+                            ? _hasher.HashPassword("Password123!")
+                            : _hasher.HashPassword(createDto.Password),
+                        StudentNumber = await _studentNumberGenerator.GenerateAsync(),
                         EmergencyContact = createDto.EmergencyContact,
                         MedicalNotes = createDto.MedicalNotes,
                         MembershipStartDate = createDto.MembershipStartDate ?? now,
@@ -361,6 +368,7 @@ namespace ActiveWorkoutClasses.Application.Services
             // Add role-specific data
             if (user is Student student)
             {
+                dto.StudentNumber = student.StudentNumber;
                 dto.MembershipStartDate = student.MembershipStartDate;
                 dto.MembershipEndDate = student.MembershipEndDate;
                 dto.EmergencyContact = student.EmergencyContact;

@@ -15,6 +15,7 @@ namespace ActiveWorkoutClasses.Application.DTOs.Classes
         public DateTime EndDateTime { get; set; }
         public int MaxCapacity { get; set; }
         public string Location { get; set; } = string.Empty;
+        public int? LocationId { get; set; }
         public bool IsActive { get; set; }
         public List<Guid> InstructorIds { get; set; } = new();
         public Guid? PrimaryInstructorId { get; set; }

@@ -1,0 +1,90 @@
+@page "/my-gradings"
+@attribute [Authorize(Roles = "Student")]
+
+@using ActiveWorkoutClasses.Application.DTOs.Grading
+@using ActiveWorkoutClasses.Domain.Enums
+
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>My Gradings</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-6" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;">
+    Grading Events
+</MudText>
+
+@if (_isLoading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_events.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">No grading events are currently published.</MudAlert>
+}
+else
+{
+    <MudGrid>
+        @foreach (var evt in _events)
+        {
+            <MudItem xs="12" md="6" lg="4">
+                <MudCard Elevation="3">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">@evt.Title</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @evt.ClassTypeName • @evt.EventDate.ToString("dd MMM yyyy")
+                            </MudText>
+                        </CardHeaderContent>
+                        <CardHeaderActions>
+                            @if (evt.ResultsPublished)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Success">Results Out</MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Info">Upcoming</MudChip>
+                            }
+                        </CardHeaderActions>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        @if (evt.Description is not null)
+                        {
+                            <MudText Typo="Typo.body2" Class="mb-2">@evt.Description</MudText>
+                        }
+                        @if (evt.Location is not null)
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" />
+                                @evt.Location.Name
+                            </MudText>
+                        }
+                    </MudCardContent>
+                    <MudCardActions>
+                        @if (evt.ResultsPublished)
+                        {
+                            <MyGradingResult GradingEventId="@evt.Id" />
+                        }
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@code {
+
+    private bool _isLoading = true;
+    private List<GradingEventDto> _events = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var all = await Api.GetAsync<List<GradingEventDto>>("api/gradingevents");
+            _events = all?.Where(e => e.IsPublished).OrderBy(e => e.EventDate).ToList() ?? new();
+        }
+        catch { Snackbar.Add("Failed to load grading events", Severity.Error); }
+        finally { _isLoading = false; }
+    }
+
+}

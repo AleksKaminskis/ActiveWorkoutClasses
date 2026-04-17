@@ -1,0 +1,126 @@
+@page "/check-in"
+@attribute [Authorize(Roles = "Student")]
+
+@using ActiveWorkoutClasses.Application.DTOs.Attendance
+@using ActiveWorkoutClasses.Application.DTOs.Classes
+
+@inject IApiClient Api
+@inject IAuthStateService AuthState
+@inject ISnackbar Snackbar
+
+<PageTitle>Check In</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-2" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;">
+    Check In to Class
+</MudText>
+<MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+    Select a class you are registered for to check in.
+</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="3">
+
+            <MudText Typo="Typo.h6" Class="mb-3">Your Student Number</MudText>
+            <MudChip T="string" Color="Color.Primary" Size="Size.Large" Class="mb-4">
+                @(AuthState.StudentNumber ?? "—")
+            </MudChip>
+
+            <MudText Typo="Typo.h6" Class="mb-3">Select Class</MudText>
+            <MudSelect T="Guid" @bind-Value="_selectedClassId" Label="Today's Classes"
+                       Variant="Variant.Outlined" Class="mb-4">
+                @foreach (var cls in _todaysClasses)
+                {
+                    <MudSelectItem Value="@cls.Id">
+                        @cls.Title — @cls.StartDateTime.ToString("HH:mm")
+                    </MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       Size="Size.Large"
+                       Disabled="@(_selectedClassId == Guid.Empty || _isChecking)"
+                       OnClick="@HandleCheckIn">
+                @if (_isChecking)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Check In
+            </MudButton>
+
+        </MudPaper>
+    </MudItem>
+
+    @if (_result is not null)
+    {
+        <MudItem xs="12" md="6">
+            <MudAlert Severity="@(_result.Success ? Severity.Success : Severity.Error)"
+                      Class="mb-4">
+                @_result.Message
+            </MudAlert>
+            @if (_result.Success && _result.Attendance != null)
+            {
+                <MudPaper Class="pa-4" Elevation="3">
+                    <MudText Typo="Typo.h6">Check-in Confirmed</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Checked in at @_result.Attendance.CheckInTime?.ToString("HH:mm:ss")
+                    </MudText>
+                </MudPaper>
+            }
+        </MudItem>
+    }
+
+</MudGrid>
+
+@code {
+
+    private bool _isLoading = true;
+    private bool _isChecking;
+    private Guid _selectedClassId;
+    private List<WorkoutClassDto> _todaysClasses = new();
+    private CheckInResultDto? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var paged = await Api.GetAsync<WorkoutClassListDto>("api/classes");
+            if (paged?.Classes is not null)
+            {
+                var today = DateTime.UtcNow.Date;
+                _todaysClasses = paged.Classes
+                    .Where(c => c.StartDateTime.Date == today && c.IsActive)
+                    .OrderBy(c => c.StartDateTime)
+                    .ToList();
+            }
+        }
+        catch { Snackbar.Add("Failed to load classes", Severity.Error); }
+        finally { _isLoading = false; }
+    }
+
+    private async Task HandleCheckIn()
+    {
+        if (_selectedClassId == Guid.Empty) return;
+
+        _isChecking = true;
+        _result = null;
+        try
+        {
+            _result = await Api.PostAsync<CheckInResultDto>(
+                $"api/attendance/checkin/{_selectedClassId}", new { });
+
+            if (_result?.Success == true)
+                Snackbar.Add("Checked in successfully!", Severity.Success);
+            else
+                Snackbar.Add(_result?.Message ?? "Check-in failed", Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally { _isChecking = false; }
+    }
+
+}

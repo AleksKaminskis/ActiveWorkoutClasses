@@ -1,11 +1,13 @@
 ﻿using ActiveWorkoutClasses.Application.DTOs.Attendance;
 using ActiveWorkoutClasses.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ActiveWorkoutClasses.ApiService.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class AttendanceController : ControllerBase
     {
         private readonly IAttendanceService _attendanceService;
@@ -121,5 +123,18 @@ namespace ActiveWorkoutClasses.ApiService.Controllers
             var history = await _attendanceService.GetStudentAttendanceHistoryAsync(studentId);
             return Ok(history);
         }
+
+        /// <summary>
+        /// Kiosk check-in by student number — no auth token required
+        /// </summary>
+        [HttpPost("checkin-by-number")]
+        [AllowAnonymous]
+        public async Task<IActionResult> CheckInByStudentNumber([FromBody] CheckInByNumberRequest request)
+        {
+            var result = await _attendanceService.CheckInByStudentNumberAsync(request.StudentNumber, request.WorkoutClassId);
+            return result.Success ? Ok(result) : BadRequest(result);
+        }
     }
+
+    public record CheckInByNumberRequest(string StudentNumber, Guid WorkoutClassId);
 }

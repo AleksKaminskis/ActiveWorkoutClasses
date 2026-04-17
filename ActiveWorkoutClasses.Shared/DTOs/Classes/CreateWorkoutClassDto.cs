@@ -13,8 +13,7 @@ namespace ActiveWorkoutClasses.Application.DTOs.Classes
         [StringLength(200, MinimumLength = 3, ErrorMessage = "Title must be 3-200 characters")]
         public string Title { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Description is required")]
-        [StringLength(1000, MinimumLength = 10, ErrorMessage = "Description must be 10-1000 characters")]
+        [StringLength(1000, ErrorMessage = "Description must be at most 1000 characters")]
         public string Description { get; set; } = string.Empty;
 
         [Required]
@@ -30,9 +29,8 @@ namespace ActiveWorkoutClasses.Application.DTOs.Classes
         [Range(1, 100, ErrorMessage = "Capacity must be between 1 and 100")]
         public int MaxCapacity { get; set; }
 
-        [Required(ErrorMessage = "Location is required")]
-        [StringLength(100, MinimumLength = 2, ErrorMessage = "Location must be 2-100 characters")]
         public string Location { get; set; } = string.Empty;
+        public int? LocationId { get; set; }
         public List<Guid> InstructorIds { get; set; } = new();
         public Guid? PrimaryInstructorId { get; set; }
     }

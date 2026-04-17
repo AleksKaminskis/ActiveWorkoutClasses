@@ -1,12 +1,14 @@
 ﻿using ActiveWorkoutClasses.Application.DTOs.Classes;
 using ActiveWorkoutClasses.Application.Interfaces;
 using ActiveWorkoutClasses.Domain.Enums;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ActiveWorkoutClasses.ApiService.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ClassesController : ControllerBase
 {
     private readonly IWorkoutClassService _classService;
@@ -24,11 +26,13 @@ public class ClassesController : ControllerBase
     /// Get all active workout classes
     /// </summary>
     [HttpGet]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<WorkoutClassDto>>> GetAllClasses()
+    public async Task<ActionResult<List<WorkoutClassDto>>> GetAllClasses([FromQuery] bool includeInactive = false)
     {
         _logger.LogInformation("Getting all classes");
-        var classes = await _classService.GetAllClassesAsync();
+        var canSeeInactive = User.IsInRole("Admin") || User.IsInRole("Instructor");
+        var classes = await _classService.GetAllClassesAsync(includeInactive && canSeeInactive);
         return Ok(classes);
     }
 

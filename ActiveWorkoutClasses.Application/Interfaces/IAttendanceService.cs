@@ -42,5 +42,10 @@ namespace ActiveWorkoutClasses.Application.Interfaces
         /// Get student's attendance history
         /// </summary>
         Task<List<AttendanceDto>> GetStudentAttendanceHistoryAsync(Guid studentId);
+
+        /// <summary>
+        /// Kiosk/self check-in by StudentNumber — no JWT required at terminal
+        /// </summary>
+        Task<CheckInResultDto> CheckInByStudentNumberAsync(string studentNumber, Guid workoutClassId);
     }
 }

@@ -7,7 +7,7 @@ namespace ActiveWorkoutClasses.Domain.Entities
     {
         private string _title = string.Empty;
         private string _description = string.Empty;
-        private string _location = string.Empty;
+        private string _locationName = string.Empty;
 
         [Key]
         public Guid Id { get; set; }
@@ -29,21 +29,11 @@ namespace ActiveWorkoutClasses.Domain.Entities
             }
         }
 
-        [Required(ErrorMessage = "Class description is required")]
-        [StringLength(1000, MinimumLength = 10, ErrorMessage = "Description must be between 10 and 1000 characters")]
+        [StringLength(1000, ErrorMessage = "Description must be at most 1000 characters")]
         public string Description
         {
             get => _description;
-            set
-            {
-                if (string.IsNullOrWhiteSpace(value))
-                    throw new ArgumentException("Description cannot be empty");
-
-                if (value.Length < 10 || value.Length > 1000)
-                    throw new ArgumentException("Description must be between 10 and 1000 characters");
-
-                _description = value.Trim();
-            }
+            set => _description = (value ?? string.Empty).Trim();
         }
 
         public ClassType ClassType { get; set; }
@@ -55,22 +45,28 @@ namespace ActiveWorkoutClasses.Domain.Entities
         [Range(1, 100, ErrorMessage = "Maximum capacity must be between 1 and 100")]
         public int MaxCapacity { get; set; }
 
-        [Required(ErrorMessage = "Location is required")]
-        [StringLength(100, MinimumLength = 2, ErrorMessage = "Location must be between 2 and 100 characters")]
-        public string Location
+        /// <summary>
+        /// Free-text fallback location name (used when no <see cref="Location"/> FK is set,
+        /// or for display when the Location entity is not loaded).
+        /// </summary>
+        [StringLength(100)]
+        public string LocationName
         {
-            get => _location;
-            set
-            {
-                if (string.IsNullOrWhiteSpace(value))
-                    throw new ArgumentException("Location cannot be empty");
-
-                if (value.Length < 2 || value.Length > 100)
-                    throw new ArgumentException("Location must be between 2 and 100 characters");
-
-                _location = value.Trim();
-            }
+            get => _locationName;
+            set => _locationName = (value ?? string.Empty).Trim();
         }
+
+        /// <summary>Optional FK to a managed <see cref="Location"/> entity.</summary>
+        public int? LocationId { get; set; }
+
+        /// <summary>Navigation property to the managed location (may be null for ad-hoc classes).</summary>
+        public Location? Location { get; set; }
+
+        /// <summary>
+        /// If this class was generated from a recurring schedule, this links back to it.
+        /// </summary>
+        public int? RecurringScheduleId { get; set; }
+        public RecurringSchedule? RecurringSchedule { get; set; }
 
         public bool IsActive { get; set; } = true;
 

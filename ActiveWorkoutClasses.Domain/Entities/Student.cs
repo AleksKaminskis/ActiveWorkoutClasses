@@ -5,6 +5,13 @@ namespace ActiveWorkoutClasses.Domain.Entities
     public class Student : User
     {
         /// <summary>
+        /// Human-readable unique identifier, e.g. "STU-2024-001".
+        /// Generated on creation and printed on membership cards.
+        /// </summary>
+        [StringLength(20)]
+        public string StudentNumber { get; set; } = string.Empty;
+
+        /// <summary>
         /// When the student's membership started
         /// </summary>
         public DateTime MembershipStartDate { get; set; } = DateTime.UtcNow;
@@ -31,6 +38,16 @@ namespace ActiveWorkoutClasses.Domain.Entities
         /// All classes this student has registered for
         /// </summary>
         public ICollection<ClassRegistration> ClassRegistrations { get; set; } = new List<ClassRegistration>();
+
+        /// <summary>
+        /// Belt/skill level history across all disciplines.
+        /// </summary>
+        public ICollection<ProgressRecord> ProgressRecords { get; set; } = [];
+
+        /// <summary>
+        /// Grading event results (eligibility + outcomes) for this student.
+        /// </summary>
+        public ICollection<GradingResult> GradingResults { get; set; } = [];
 
         /// <summary>
         /// Check if membership is currently active

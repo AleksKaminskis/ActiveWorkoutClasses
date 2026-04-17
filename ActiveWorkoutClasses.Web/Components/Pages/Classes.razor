@@ -1,295 +1,287 @@
 @page "/classes"
 
-@using ActiveWorkoutClasses.Application.DTOs.Classes
-@using ActiveWorkoutClasses.Domain.Enums
-@using MudBlazor
-
-@inject NavigationManager Navigation
-@inject HttpClient Http
-@inject IDialogService DialogService
+@inject IApiClient Api
 @inject ISnackbar Snackbar
+@inject NavigationManager Nav
+@inject IAuthStateService AuthState
 
-<PageTitle>Classes</PageTitle>
+<PageTitle>Classes — Active Workout</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">Classes</MudText>
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-6">
+    <MudText Typo="Typo.h4" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;">
+        Workout Classes
+    </MudText>
+    <AuthorizeView Roles="Admin,Instructor">
+        <Authorized>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       Href="/classes/create">
+                New Class
+            </MudButton>
+        </Authorized>
+    </AuthorizeView>
+</MudStack>
 
-<MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/classes/create">New Class</MudButton>
-
-<MudPaper Class="pa-4 mb-4">
-
+<MudPaper Class="pa-4 mb-6" Elevation="2">
     <MudGrid>
-
         <MudItem xs="12" md="4">
             <MudTextField T="string"
-                          Placeholder="Search classes..."
+                          @bind-Value="_search"
+                          Placeholder="Search by title or description…"
                           Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Search"
                           Immediate="true"
-                          @bind-Value="filters.SearchTerm" />
+                          Variant="Variant.Outlined"
+                          Clearable="true" />
         </MudItem>
-
-        <!-- Active Filter -->
-        <MudItem xs="12" md="2">
-            <MudSelect T="string"
-                       Label="Active"
-                       @bind-Value="filters.Active">
-
-                <MudSelectItem Value="@("All")">All</MudSelectItem>
-                <MudSelectItem Value="@("Active")">Active</MudSelectItem>
-                <MudSelectItem Value="@("Inactive")">Inactive</MudSelectItem>
-
-            </MudSelect>
-        </MudItem>
-
-        <!-- Class Type -->
-        <MudItem xs="12" md="3">
-            <MudSelect T="ClassType?"
-                       Label="Class Type"
-                       @bind-Value="filters.ClassType">
-
-                <MudSelectItem Value="@((ClassType?)null)">All Types</MudSelectItem>
-
-                @foreach (var ct in Enum.GetValues(typeof(ClassType)).Cast<ClassType>())
+        <MudItem xs="6" md="3">
+            <MudSelect T="ClassType?" @bind-Value="_typeFilter" Label="Discipline" Variant="Variant.Outlined" Clearable="true">
+                <MudSelectItem Value="@((ClassType?)null)">All disciplines</MudSelectItem>
+                @foreach (var t in Enum.GetValues<ClassType>())
                 {
-                    <MudSelectItem Value="@((ClassType?)ct)">
-                        @ct
-                    </MudSelectItem>
+                    <MudSelectItem Value="@((ClassType?)t)">@t</MudSelectItem>
                 }
-
             </MudSelect>
         </MudItem>
-
-        <!-- Availability -->
-        <MudItem xs="12" md="2">
-            <MudSelect T="string"
-                       Label="Availability"
-                       @bind-Value="filters.Availability">
-
+        <MudItem xs="6" md="3">
+            <MudSelect T="string" @bind-Value="_availFilter" Label="Availability" Variant="Variant.Outlined">
                 <MudSelectItem Value="@("All")">All</MudSelectItem>
-                <MudSelectItem Value="@("Available")">Available</MudSelectItem>
+                <MudSelectItem Value="@("Available")">Spaces available</MudSelectItem>
                 <MudSelectItem Value="@("Full")">Full</MudSelectItem>
-
             </MudSelect>
         </MudItem>
-
-        <MudItem xs="12" md="1" Class="d-flex align-center">
-            <MudButton Variant="Variant.Outlined"
-                       Color="Color.Secondary"
-                       OnClick="ClearFilters">
+        <MudItem xs="12" md="2" Class="d-flex align-center">
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="ClearFilters" FullWidth="true">
                 Clear
             </MudButton>
         </MudItem>
-
     </MudGrid>
-
 </MudPaper>
 
-
-@if (isLoading)
+@if (_isLoading)
 {
-    <MudProgressCircular Indeterminate="true" />
+    <MudProgressLinear Indeterminate="true" Class="mb-4" />
+    <MudGrid>
+        @for (int i = 0; i < 6; i++)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="240px" />
+            </MudItem>
+        }
+    </MudGrid>
 }
-else if (!FilteredClasses.Any())
+else if (!Filtered.Any())
 {
-    <MudAlert Severity="Severity.Info">
-        No classes found
+    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+        No classes match your filters.
     </MudAlert>
 }
 else
 {
-    <MudTable Items="FilteredClasses" Dense="true" Hover="true">
+    <MudGrid>
+        @foreach (var cls in Filtered)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard Elevation="3" Style="@($"height:100%;display:flex;flex-direction:column;{(!cls.IsActive ? "opacity:0.6;border:1px solid var(--mud-palette-error);" : "")}")">
+                    @if (!cls.IsActive)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true" Class="ma-0" Icon="@Icons.Material.Filled.VisibilityOff">
+                            Inactive — not visible to members
+                        </MudAlert>
+                    }
 
-        <HeaderContent>
-            <MudTh>Title</MudTh>
-            <MudTh>Type</MudTh>
-            <MudTh>When</MudTh>
-            <MudTh>Duration</MudTh>
-            <MudTh>Capacity</MudTh>
-            <MudTh>Availability</MudTh>
-            <MudTh>Active</MudTh>
-            <MudTh>Instructors</MudTh>
-            <MudTh>Actions</MudTh>
-        </HeaderContent>
+                    <MudCardHeader>
+                        <CardHeaderAvatar>
+                            <MudAvatar Color="@ClassColor(cls.ClassType)" Variant="Variant.Filled">
+                                <MudIcon Icon="@ClassIcon(cls.ClassType)" />
+                            </MudAvatar>
+                        </CardHeaderAvatar>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6" Style="line-height:1.2">@cls.Title</MudText>
+                            <MudChip T="string" Size="Size.Small" Color="@ClassColor(cls.ClassType)" Variant="Variant.Filled">
+                                @cls.ClassTypeName
+                            </MudChip>
+                        </CardHeaderContent>
+                        <CardHeaderActions>
+                            <MudChip T="string" Size="Size.Small"
+                                     Color="@(cls.IsFull ? Color.Error : Color.Success)"
+                                     Variant="Variant.Outlined">
+                                @(cls.IsFull ? "Full" : $"{cls.AvailableSpots} spots")
+                            </MudChip>
+                        </CardHeaderActions>
+                    </MudCardHeader>
 
-        <RowTemplate>
+                    <MudCardContent Style="flex:1">
+                        @if (!string.IsNullOrWhiteSpace(cls.Description))
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                                @(cls.Description.Length > 100 ? cls.Description[..100] + "…" : cls.Description)
+                            </MudText>
+                        }
+                        <MudStack Spacing="1">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Color="Color.Secondary" />
+                                <MudText Typo="Typo.body2">@cls.StartDateTime.ToString("ddd dd MMM, HH:mm")</MudText>
+                            </MudStack>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.Timer" Size="Size.Small" Color="Color.Secondary" />
+                                <MudText Typo="Typo.body2">@cls.DurationMinutes min</MudText>
+                            </MudStack>
+                            @if (!string.IsNullOrWhiteSpace(cls.Location))
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" Color="Color.Secondary" />
+                                    <MudText Typo="Typo.body2">@cls.Location</MudText>
+                                </MudStack>
+                            }
+                            @if (cls.Instructors?.Any() == true)
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Color="Color.Secondary" />
+                                    <MudText Typo="Typo.body2">@string.Join(", ", cls.Instructors.Select(i => i.FullName))</MudText>
+                                </MudStack>
+                            }
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.Group" Size="Size.Small" Color="Color.Secondary" />
+                                <MudText Typo="Typo.body2">@cls.CurrentEnrollment / @cls.MaxCapacity enrolled</MudText>
+                            </MudStack>
+                        </MudStack>
+                    </MudCardContent>
 
-            <MudTd>@context.Title</MudTd>
+                    <MudCardActions>
+                        <AuthorizeView Roles="Student">
+                            <Authorized>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                           Disabled="@cls.IsFull"
+                                           Href="/my-classes">
+                                    @(cls.IsFull ? "Full" : "Register")
+                                </MudButton>
+                            </Authorized>
+                        </AuthorizeView>
 
-            <MudTd>
-                @(string.IsNullOrWhiteSpace(context.ClassTypeName)
-                    ? context.ClassType.ToString()
-                    : context.ClassTypeName)
-            </MudTd>
+                        <AuthorizeView Roles="Admin,Instructor">
+                            <Authorized>
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                               Color="Color.Warning" Size="Size.Small"
+                                               OnClick="@(() => Nav.NavigateTo($"/classes/edit/{cls.Id}"))"
+                                               Title="Edit" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error" Size="Size.Small"
+                                               OnClick="@(() => ConfirmDelete(cls))"
+                                               Title="Delete" />
+                            </Authorized>
+                        </AuthorizeView>
 
-            <MudTd>@context.StartDateTime.ToString("g")</MudTd>
+                        <AuthorizeView>
+                            <NotAuthorized>
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                           Href="/login">
+                                    Sign in to register
+                                </MudButton>
+                            </NotAuthorized>
+                        </AuthorizeView>
+                    </MudCardActions>
 
-            <MudTd>@context.DurationMinutes mins</MudTd>
-
-            <MudTd>@context.CurrentEnrollment/@context.MaxCapacity</MudTd>
-
-            <MudTd>
-                <MudChip T="string" Color="@(context.IsFull? Color.Error: Color.Success)">
-                    @(context.IsFull ? "Full" : "Available")
-                </MudChip>
-            </MudTd>
-
-            <MudTd>@(context.IsActive ? "Yes" : "No")</MudTd>
-
-            <MudTd>
-                @(context.Instructors?.Any() == true
-                    ? string.Join(", ", context.Instructors.Select(i => i.FullName))
-                    : "-")
-            </MudTd>
-
-            <MudTd>
-                <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Tertiary">CheckIn</MudButton>
-
-                <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                               Color="Color.Warning"
-                               Size="Size.Medium"
-                               OnClick="@(() => EditClass(context.Id))"
-                               Title="Edit Class" />
-
-                <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                               Color="Color.Error"
-                               Size="Size.Medium"
-                               OnClick="@(() => DeleteAsync(context.Id))"
-                               Title="Delete Class" />
-
-            </MudTd>
-
-        </RowTemplate>
-
-    </MudTable>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
 }
+
+<MudMessageBox @ref="_msgBox" Title="Delete class?" CancelText="Cancel">
+    <MessageContent>
+        Are you sure you want to delete <strong>@_deleteTarget?.Title</strong>? This cannot be undone.
+    </MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error">Delete</MudButton>
+    </YesButton>
+</MudMessageBox>
 
 @code {
 
-    private void EditClass(Guid id)
-    {
-        Navigation.NavigateTo($"/classes/edit/{id}");
-    }
+    private List<WorkoutClassDto> _classes = new();
+    private bool _isLoading = true;
 
-    private async Task DeleteAsync(Guid id)
-    {
-        var parameters = new DialogParameters<Dialog>
-        {
-            { x => x.ContentText, "Are you sure you want to delete this class? This process cannot be undone." },
-            { x => x.ButtonText, "Delete" },
-            { x => x.Color, Color.Error }
-        };
+    private string _search = string.Empty;
+    private ClassType? _typeFilter;
+    private string _availFilter = "All";
 
-        var options = new DialogOptions() { CloseButton = true, MaxWidth = MaxWidth.Small };
-        var dialog = await DialogService.ShowAsync<Dialog>("Delete", parameters, options);
-        var result = await dialog.Result;
+    private MudMessageBox? _msgBox;
+    private WorkoutClassDto? _deleteTarget;
 
-        if (!result.Canceled)
-        {
-            await DeleteClass(id);
-        }
-    }
-
-    private async Task DeleteClass(Guid id)
-    {
-        await Http.DeleteAsync($"api/classes/{id}");
-        Snackbar.Add("Class deleted successfully", Severity.Success);
-        await LoadClassesAsync(); // refresh table
-    }
-
-    public class ClassFilters
-    {
-        public string SearchTerm { get; set; } = "";
-        public string Active { get; set; } = "All";
-        public string Availability { get; set; } = "All";
-        public ClassType? ClassType { get; set; }
-    }
-
-    private List<WorkoutClassDto> classes = new();
-    private bool isLoading = true;
-
-    private ClassFilters filters = new();
-
-    private IEnumerable<WorkoutClassDto> FilteredClasses
-    {
-        get
-        {
-            try
-            {
-                return classes
-                    .Where(SearchFilter)
-                    .Where(ActiveFilter)
-                    .Where(TypeFilter)
-                    .Where(AvailabilityFilter);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex);
-                return classes;
-            }
-        }
-    }
-
-    private bool SearchFilter(WorkoutClassDto c)
-    {
-        if (string.IsNullOrWhiteSpace(filters.SearchTerm))
-            return true;
-
-        return (c.Title?.Contains(filters.SearchTerm, StringComparison.OrdinalIgnoreCase) ?? false)
-            || (c.Description?.Contains(filters.SearchTerm, StringComparison.OrdinalIgnoreCase) ?? false);
-    }
-
-    private bool ActiveFilter(WorkoutClassDto c)
-    {
-        return filters.Active switch
-        {
-            "Active" => c.IsActive,
-            "Inactive" => !c.IsActive,
-            _ => true
-        };
-    }
-
-    private bool TypeFilter(WorkoutClassDto c)
-    {
-        if (filters.ClassType == null)
-            return true;
-
-        return c.ClassType == filters.ClassType;
-    }
-
-    private bool AvailabilityFilter(WorkoutClassDto c)
-    {
-        return filters.Availability switch
+    private IEnumerable<WorkoutClassDto> Filtered => _classes
+        .Where(c => string.IsNullOrWhiteSpace(_search) ||
+                    c.Title.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                    c.Description.Contains(_search, StringComparison.OrdinalIgnoreCase))
+        .Where(c => _typeFilter is null || c.ClassType == _typeFilter)
+        .Where(c => _availFilter switch
         {
             "Available" => !c.IsFull,
             "Full" => c.IsFull,
             _ => true
-        };
-    }
+        });
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadClassesAsync();
-    }
-
-    private async Task LoadClassesAsync()
-    {
         try
         {
-            isLoading = true;
-
-            var result = await Http.GetFromJsonAsync<List<WorkoutClassDto>>("api/classes");
-
-            if (result != null)
-                classes = result;
+            var isStaff = AuthState.UserRole is "Admin" or "Instructor";
+            var url = isStaff ? "api/classes?includeInactive=true" : "api/classes";
+            _classes = await Api.GetAsync<List<WorkoutClassDto>>(url) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load classes: {ex.Message}", Severity.Error);
         }
         finally
         {
-            isLoading = false;
+            _isLoading = false;
         }
     }
 
     private void ClearFilters()
     {
-        filters = new ClassFilters();
+        _search = string.Empty;
+        _typeFilter = null;
+        _availFilter = "All";
     }
+
+    private async Task ConfirmDelete(WorkoutClassDto cls)
+    {
+        _deleteTarget = cls;
+        var confirmed = await _msgBox!.ShowAsync();
+        if (confirmed != true) return;
+
+        var ok = await Api.DeleteAsync($"api/classes/{cls.Id}");
+        if (ok)
+        {
+            _classes.RemoveAll(c => c.Id == cls.Id);
+            Snackbar.Add("Class deleted.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Failed to delete class.", Severity.Error);
+        }
+        _deleteTarget = null;
+    }
+
+    private static Color ClassColor(ClassType t) => t switch
+    {
+        ClassType.KravMaga => Color.Error,
+        ClassType.Boxing   => Color.Warning,
+        ClassType.Yoga     => Color.Success,
+        ClassType.Pilates  => Color.Tertiary,
+        ClassType.HIIT     => Color.Secondary,
+        _                  => Color.Primary
+    };
+
+    private static string ClassIcon(ClassType t) => t switch
+    {
+        ClassType.KravMaga => Icons.Material.Filled.Shield,
+        ClassType.Boxing   => Icons.Material.Filled.SportsKabaddi,
+        ClassType.Yoga     => Icons.Material.Filled.SelfImprovement,
+        ClassType.Pilates  => Icons.Material.Filled.FitnessCenter,
+        ClassType.HIIT     => Icons.Material.Filled.DirectionsRun,
+        _                  => Icons.Material.Filled.FitnessCenter
+    };
 }

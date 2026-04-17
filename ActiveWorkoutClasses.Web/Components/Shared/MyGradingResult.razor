@@ -1,0 +1,46 @@
+@using ActiveWorkoutClasses.Application.DTOs.Grading
+@using ActiveWorkoutClasses.Domain.Enums
+
+@inject IApiClient Api
+
+@if (_loaded)
+{
+    @if (_result is not null)
+    {
+        <MudChip T="string" Size="Size.Small"
+                 Color="@ResultColor(_result.Status)">
+            @_result.Status
+        </MudChip>
+        @if (_result.CurrentBelt is not null)
+        {
+            <MudText Typo="Typo.caption" Class="ml-2">@_result.CurrentBelt</MudText>
+        }
+    }
+}
+
+@code {
+
+    [Parameter] public int GradingEventId { get; set; }
+
+    private bool _loaded;
+    private GradingCandidateDto? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _result = await Api.GetAsync<GradingCandidateDto>($"api/gradingevents/{GradingEventId}/my-result");
+        }
+        catch { }
+        finally { _loaded = true; }
+    }
+
+    private Color ResultColor(GradingResultStatus? status) => status switch
+    {
+        GradingResultStatus.Pass => Color.Success,
+        GradingResultStatus.Fail => Color.Error,
+        GradingResultStatus.Absent => Color.Warning,
+        _ => Color.Default
+    };
+
+}

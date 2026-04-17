@@ -1,0 +1,131 @@
+@page "/admin/users"
+@attribute [Authorize(Roles = "Admin")]
+
+@using ActiveWorkoutClasses.Application.DTOs.Users
+@using ActiveWorkoutClasses.Domain.Enums
+
+@inject IApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>Users — Admin</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-6" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;">
+    User Management
+</MudText>
+
+<MudPaper Class="pa-4 mb-4" Elevation="2">
+    <MudGrid AlignItems="AlignItems.Center">
+        <MudItem xs="12" md="4">
+            <MudTextField @bind-Value="_search" Label="Search users" Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" Variant="Variant.Outlined"
+                          Immediate="true" TextChanged="@OnSearchChanged" />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudSelect T="string" Value="_roleFilter" Label="Role" Variant="Variant.Outlined"
+                       ValueChanged="@OnFilterChanged">
+                <MudSelectItem Value="@("")">All Roles</MudSelectItem>
+                <MudSelectItem Value="@("Student")">Students</MudSelectItem>
+                <MudSelectItem Value="@("Instructor")">Instructors</MudSelectItem>
+                <MudSelectItem Value="@("Admin")">Admins</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (_isLoading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    <MudTable Items="@_filteredUsers" Hover="true" Elevation="3" Dense="true">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Email</MudTh>
+            <MudTh>Role</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>Joined</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.FullName</MudTd>
+            <MudTd>@context.Email</MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small"
+                         Color="@RoleColor(context.Role)">
+                    @context.RoleName
+                </MudChip>
+            </MudTd>
+            <MudTd>
+                <MudIcon Icon="@(context.IsActive ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)"
+                         Color="@(context.IsActive ? Color.Success : Color.Error)"
+                         Size="Size.Small" />
+            </MudTd>
+            <MudTd>@context.CreatedAt.ToString("dd MMM yyyy")</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                               Size="Size.Small"
+                               Href="@($"/admin/users/{context.Id}")" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-4" Color="Color.Secondary">No users found.</MudText>
+        </NoRecordsContent>
+        <PagerContent>
+            <MudTablePager />
+        </PagerContent>
+    </MudTable>
+}
+
+@code {
+
+    private bool _isLoading = true;
+    private string _search = string.Empty;
+    private string _roleFilter = string.Empty;
+    private List<UserDto> _allUsers = new();
+    private List<UserDto> _filteredUsers = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var paged = await Api.GetAsync<UserListDto>("api/users/paged?pageSize=500");
+            _allUsers = paged?.Users ?? new();
+            ApplyFilters();
+        }
+        catch { Snackbar.Add("Failed to load users", Severity.Error); }
+        finally { _isLoading = false; }
+    }
+
+    private void OnSearchChanged(string value)
+    {
+        _search = value;
+        ApplyFilters();
+    }
+
+    private void OnFilterChanged(string value)
+    {
+        _roleFilter = value;
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        _filteredUsers = _allUsers
+            .Where(u => string.IsNullOrEmpty(_search) ||
+                        u.FullName.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                        u.Email.Contains(_search, StringComparison.OrdinalIgnoreCase))
+            .Where(u => string.IsNullOrEmpty(_roleFilter) ||
+                        u.RoleName.Equals(_roleFilter, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private Color RoleColor(UserRole role) => role switch
+    {
+        UserRole.Admin => Color.Error,
+        UserRole.Instructor => Color.Primary,
+        UserRole.Student => Color.Success,
+        _ => Color.Default
+    };
+
+}

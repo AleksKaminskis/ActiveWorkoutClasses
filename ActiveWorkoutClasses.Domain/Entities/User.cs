@@ -106,6 +106,9 @@ namespace ActiveWorkoutClasses.Domain.Entities
 
         public bool IsActive { get; set; } = true;
 
+        /// <summary>BCrypt hash of the user's password. Empty for seeded/legacy records.</summary>
+        public string PasswordHash { get; set; } = string.Empty;
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

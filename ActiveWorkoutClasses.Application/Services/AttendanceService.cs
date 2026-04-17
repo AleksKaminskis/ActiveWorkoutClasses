@@ -1,4 +1,5 @@
-﻿using ActiveWorkoutClasses.Application.DTOs.Attendance;
+﻿using System.Text.Json;
+using ActiveWorkoutClasses.Application.DTOs.Attendance;
 using ActiveWorkoutClasses.Application.Interfaces;
 using ActiveWorkoutClasses.Domain.Entities;
 using ActiveWorkoutClasses.Domain.Enums;
@@ -161,6 +162,7 @@ namespace ActiveWorkoutClasses.Application.Services
             // If attendance already exists, update it
             if (registration.Attendance != null)
             {
+                var oldValue = JsonSerializer.Serialize(new { registration.Attendance.IsPresent, registration.Attendance.CheckInMethod });
                 registration.Attendance.IsPresent = isPresent;
                 registration.Attendance.MarkedByInstructorId = instructorId;
                 registration.Attendance.Notes = notes;
@@ -171,6 +173,18 @@ namespace ActiveWorkoutClasses.Application.Services
                 {
                     registration.Attendance.CheckInTime = now;
                 }
+
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    EntityType = "Attendance",
+                    EntityId = registration.Attendance.Id.ToString(),
+                    Action = "InstructorOverride",
+                    OldValue = oldValue,
+                    NewValue = JsonSerializer.Serialize(new { IsPresent = isPresent, CheckInMethod = "InstructorCheckIn" }),
+                    PerformedByUserId = instructorId,
+                    PerformedAt = now,
+                    Reason = notes
+                });
 
                 await _context.SaveChangesAsync();
 
@@ -357,6 +371,68 @@ namespace ActiveWorkoutClasses.Application.Services
                 .ToListAsync();
 
             return attendances.Select(MapAttendanceToDto).ToList();
+        }
+
+        public async Task<CheckInResultDto> CheckInByStudentNumberAsync(string studentNumber, Guid workoutClassId)
+        {
+            var student = await _context.Students
+                .FirstOrDefaultAsync(s => s.StudentNumber == studentNumber && s.IsActive);
+
+            if (student is null)
+                return new CheckInResultDto { Success = false, Message = "Student not found", Errors = ["Invalid student number"] };
+
+            var registration = await _context.ClassRegistrations
+                .Include(r => r.WorkoutClass)
+                .Include(r => r.Attendance)
+                .FirstOrDefaultAsync(r => r.StudentId == student.Id
+                    && r.WorkoutClassId == workoutClassId
+                    && r.Status == RegistrationStatus.Registered);
+
+            if (registration is null)
+                return new CheckInResultDto { Success = false, Message = "No active registration found for this class", Errors = ["Not registered"] };
+
+            if (registration.Attendance is not null)
+                return new CheckInResultDto { Success = false, Message = "Already checked in", Errors = [$"Checked in at {registration.Attendance.CheckInTime:HH:mm}"] };
+
+            var now = DateTime.UtcNow;
+            if (!registration.WorkoutClass.CanCheckIn(now))
+            {
+                var windowStart = registration.WorkoutClass.StartDateTime.AddMinutes(-30);
+                return new CheckInResultDto
+                {
+                    Success = false,
+                    Message = "Check-in window not open",
+                    Errors = [$"Opens at {windowStart:HH:mm}, closes at {registration.WorkoutClass.EndDateTime:HH:mm}"]
+                };
+            }
+
+            var attendance = new Attendance
+            {
+                Id = Guid.NewGuid(),
+                ClassRegistrationId = registration.Id,
+                CheckInTime = now,
+                CheckInMethod = CheckInMethod.SelfCheckIn,
+                IsPresent = true,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            _context.Attendances.Add(attendance);
+            await _context.SaveChangesAsync();
+
+            return new CheckInResultDto
+            {
+                Success = true,
+                Message = $"Welcome {student.FirstName}! Checked in to {registration.WorkoutClass.Title}.",
+                Attendance = new AttendanceDto
+                {
+                    Id = attendance.Id,
+                    ClassRegistrationId = attendance.ClassRegistrationId,
+                    CheckInTime = attendance.CheckInTime,
+                    CheckInMethod = attendance.CheckInMethod,
+                    CheckInMethodName = "Self Check-In",
+                    IsPresent = attendance.IsPresent
+                }
+            };
         }
 
         #region Private Mapping Methods

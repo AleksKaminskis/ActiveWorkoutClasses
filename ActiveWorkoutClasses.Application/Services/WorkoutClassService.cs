@@ -19,16 +19,18 @@ namespace ActiveWorkoutClasses.Application.Services
             _context = context;
         }
 
-        public async Task<List<WorkoutClassDto>> GetAllClassesAsync()
+        public async Task<List<WorkoutClassDto>> GetAllClassesAsync(bool includeInactive = false)
         {
-            var classes = await _context.WorkoutClasses
+            var query = _context.WorkoutClasses
                 .Include(c => c.ClassInstructors)
                     .ThenInclude(ci => ci.Instructor)
                 .Include(c => c.ClassRegistrations)
-                .Where(c => c.IsActive)
-                .OrderBy(c => c.StartDateTime)
-                .ToListAsync();
+                .AsQueryable();
 
+            if (!includeInactive)
+                query = query.Where(c => c.IsActive);
+
+            var classes = await query.OrderBy(c => c.StartDateTime).ToListAsync();
             return classes.Select(MapToDto).ToList();
         }
 
@@ -109,7 +111,8 @@ namespace ActiveWorkoutClasses.Application.Services
                 StartDateTime = createDto.StartDateTime,
                 EndDateTime = createDto.EndDateTime,
                 MaxCapacity = createDto.MaxCapacity,
-                Location = createDto.Location,
+                LocationName = createDto.Location,
+                LocationId = createDto.LocationId,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -171,7 +174,8 @@ namespace ActiveWorkoutClasses.Application.Services
             workoutClass.StartDateTime = updateDto.StartDateTime;
             workoutClass.EndDateTime = updateDto.EndDateTime;
             workoutClass.MaxCapacity = updateDto.MaxCapacity;
-            workoutClass.Location = updateDto.Location;
+            workoutClass.LocationName = updateDto.Location;
+            workoutClass.LocationId = updateDto.LocationId;
             workoutClass.IsActive = updateDto.IsActive;
             workoutClass.UpdatedAt = DateTime.UtcNow;
 
@@ -273,7 +277,8 @@ namespace ActiveWorkoutClasses.Application.Services
                 CurrentEnrollment = workoutClass.CurrentEnrollment,
                 AvailableSpots = workoutClass.AvailableSpots,
                 IsFull = workoutClass.IsFull,
-                Location = workoutClass.Location,
+                Location = workoutClass.Location?.Name ?? workoutClass.LocationName,
+                LocationId = workoutClass.LocationId,
                 IsActive = workoutClass.IsActive,
                 CanCheckIn = workoutClass.CanCheckIn(now),
                 IsToday = workoutClass.IsToday(now.Date),

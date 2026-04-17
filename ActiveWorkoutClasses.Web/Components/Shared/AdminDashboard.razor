@@ -1,0 +1,121 @@
+@using ActiveWorkoutClasses.Application.DTOs.Analytics
+
+@inject IApiClient Api
+
+<MudText Typo="Typo.h4" Class="mb-6"
+         Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;">
+    Admin Dashboard
+</MudText>
+
+@if (_isLoading)
+{
+    <MudProgressLinear Indeterminate="true" Class="mb-4" />
+}
+
+<MudGrid>
+
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="pa-4" Elevation="3">
+            <MudStack AlignItems="AlignItems.Center">
+                <MudIcon Icon="@Icons.Material.Filled.People" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.h4" Style="font-weight:700;">@(_summary?.TotalStudents ?? 0)</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Total Students</MudText>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="pa-4" Elevation="3">
+            <MudStack AlignItems="AlignItems.Center">
+                <MudIcon Icon="@Icons.Material.Filled.School" Color="Color.Secondary" Size="Size.Large" />
+                <MudText Typo="Typo.h4" Style="font-weight:700;">@(_summary?.TotalInstructors ?? 0)</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Instructors</MudText>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="pa-4" Elevation="3">
+            <MudStack AlignItems="AlignItems.Center">
+                <MudIcon Icon="@Icons.Material.Filled.FitnessCenter" Color="Color.Info" Size="Size.Large" />
+                <MudText Typo="Typo.h4" Style="font-weight:700;">@(_summary?.TotalClassesThisMonth ?? 0)</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Classes This Month</MudText>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="pa-4" Elevation="3">
+            <MudStack AlignItems="AlignItems.Center">
+                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" />
+                <MudText Typo="Typo.h4" Style="font-weight:700;">@(_summary?.TotalAttendanceThisMonth ?? 0)</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Attendance This Month</MudText>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="3">
+            <MudText Typo="Typo.h6" Class="mb-3">Quick Actions</MudText>
+            <MudStack Spacing="2">
+                <MudButton Href="/admin/users" StartIcon="@Icons.Material.Filled.People"
+                           Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true">
+                    Manage Users
+                </MudButton>
+                <MudButton Href="/classes" StartIcon="@Icons.Material.Filled.FitnessCenter"
+                           Variant="Variant.Outlined" Color="Color.Secondary" FullWidth="true">
+                    Manage Classes
+                </MudButton>
+                <MudButton Href="/grading-events" StartIcon="@Icons.Material.Filled.Grade"
+                           Variant="Variant.Outlined" FullWidth="true">
+                    Grading Events
+                </MudButton>
+                <MudButton Href="/admin/locations" StartIcon="@Icons.Material.Filled.LocationOn"
+                           Variant="Variant.Outlined" FullWidth="true">
+                    Manage Locations
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Elevation="3">
+            <MudText Typo="Typo.h6" Class="mb-3">Popular Class Types</MudText>
+            @if (_popularity.Count == 0)
+            {
+                <MudText Color="Color.Secondary">No data available yet.</MudText>
+            }
+            else
+            {
+                @foreach (var item in _popularity.Take(5))
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.body2">@item.ClassType</MudText>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary">@item.TotalAttendees</MudChip>
+                    </MudStack>
+                }
+            }
+        </MudPaper>
+    </MudItem>
+
+</MudGrid>
+
+@code {
+
+    private bool _isLoading = true;
+    private DashboardSummaryDto? _summary;
+    private List<ClassPopularityDto> _popularity = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _summary = await Api.GetAsync<DashboardSummaryDto>("api/analytics/dashboard");
+            var pop = await Api.GetAsync<List<ClassPopularityDto>>("api/analytics/class-popularity");
+            _popularity = pop ?? new();
+        }
+        catch { }
+        finally { _isLoading = false; }
+    }
+
+}

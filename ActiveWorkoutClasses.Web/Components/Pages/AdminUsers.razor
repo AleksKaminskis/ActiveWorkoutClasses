@@ -14,7 +14,7 @@
 </MudText>
 
 <MudPaper Class="pa-4 mb-4" Elevation="2">
-    <MudGrid AlignItems="AlignItems.Center">
+    <MudGrid>
         <MudItem xs="12" md="4">
             <MudTextField @bind-Value="_search" Label="Search users" Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Search" Variant="Variant.Outlined"
@@ -22,11 +22,19 @@
         </MudItem>
         <MudItem xs="12" md="3">
             <MudSelect T="string" Value="_roleFilter" Label="Role" Variant="Variant.Outlined"
-                       ValueChanged="@OnFilterChanged">
+                       ValueChanged="@OnRoleFilterChanged">
                 <MudSelectItem Value="@("")">All Roles</MudSelectItem>
                 <MudSelectItem Value="@("Student")">Students</MudSelectItem>
                 <MudSelectItem Value="@("Instructor")">Instructors</MudSelectItem>
                 <MudSelectItem Value="@("Admin")">Admins</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudSelect T="string" Value="_statusFilter" Label="Status" Variant="Variant.Outlined"
+                       ValueChanged="@OnStatusFilterChanged">
+                <MudSelectItem Value="@("")">All</MudSelectItem>
+                <MudSelectItem Value="@("active")">Active</MudSelectItem>
+                <MudSelectItem Value="@("inactive")">Inactive</MudSelectItem>
             </MudSelect>
         </MudItem>
     </MudGrid>
@@ -82,6 +90,7 @@ else
     private bool _isLoading = true;
     private string _search = string.Empty;
     private string _roleFilter = string.Empty;
+    private string _statusFilter = string.Empty;
     private List<UserDto> _allUsers = new();
     private List<UserDto> _filteredUsers = new();
 
@@ -103,9 +112,15 @@ else
         ApplyFilters();
     }
 
-    private void OnFilterChanged(string value)
+    private void OnRoleFilterChanged(string value)
     {
         _roleFilter = value;
+        ApplyFilters();
+    }
+
+    private void OnStatusFilterChanged(string value)
+    {
+        _statusFilter = value;
         ApplyFilters();
     }
 
@@ -117,6 +132,12 @@ else
                         u.Email.Contains(_search, StringComparison.OrdinalIgnoreCase))
             .Where(u => string.IsNullOrEmpty(_roleFilter) ||
                         u.RoleName.Equals(_roleFilter, StringComparison.OrdinalIgnoreCase))
+            .Where(u => _statusFilter switch
+            {
+                "active"   => u.IsActive,
+                "inactive" => !u.IsActive,
+                _          => true
+            })
             .ToList();
     }
 

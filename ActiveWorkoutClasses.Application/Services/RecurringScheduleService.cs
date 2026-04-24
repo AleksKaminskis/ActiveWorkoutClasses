@@ -77,11 +77,28 @@ namespace ActiveWorkoutClasses.Application.Services
 
         public async Task<bool> DeleteAsync(int id)
         {
-            var schedule = await _context.RecurringSchedules.FindAsync(id);
+            var schedule = await _context.RecurringSchedules
+                .Include(s => s.GeneratedClasses)
+                .FirstOrDefaultAsync(s => s.Id == id);
             if (schedule is null) return false;
-            schedule.IsActive = false;
+
+            // Detach any remaining generated classes from this schedule before removing it
+            foreach (var c in schedule.GeneratedClasses)
+                c.RecurringScheduleId = null;
+
+            _context.RecurringSchedules.Remove(schedule);
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<int> CleanGeneratedClassesAsync(int scheduleId)
+        {
+            var classes = await _context.WorkoutClasses
+                .Where(c => c.RecurringScheduleId == scheduleId)
+                .ToListAsync();
+            _context.WorkoutClasses.RemoveRange(classes);
+            await _context.SaveChangesAsync();
+            return classes.Count;
         }
 
         public async Task<int> MaterialiseAsync(int scheduleId, int? weeksAhead = null)

@@ -55,5 +55,13 @@ namespace ActiveWorkoutClasses.ApiService.Controllers
             var count = await _scheduleService.MaterialiseAsync(id, weeksAhead);
             return Ok(new { CreatedClasses = count });
         }
+
+        [HttpDelete("{id:int}/classes")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> CleanClasses(int id)
+        {
+            var count = await _scheduleService.CleanGeneratedClassesAsync(id);
+            return Ok(new { DeletedClasses = count });
+        }
     }
 }

@@ -10,5 +10,6 @@ namespace ActiveWorkoutClasses.Application.Interfaces
         Task<RecurringScheduleDto?> UpdateAsync(int id, UpdateRecurringScheduleDto dto);
         Task<bool> DeleteAsync(int id);
         Task<int> MaterialiseAsync(int scheduleId, int? weeksAhead = null);
+        Task<int> CleanGeneratedClassesAsync(int scheduleId);
     }
 }

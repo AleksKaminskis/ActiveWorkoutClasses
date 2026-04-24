@@ -23,22 +23,27 @@
 @if (_showForm)
 {
     <MudPaper Class="pa-6 mb-6" Elevation="4">
-        <MudText Typo="Typo.h6" Class="mb-4">New Recurring Schedule</MudText>
+        <MudText Typo="Typo.h6" Class="mb-4" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;">
+            @(_editingId.HasValue ? "Edit Schedule" : "New Recurring Schedule")
+        </MudText>
         <MudForm @ref="_form">
             <MudGrid>
                 <MudItem xs="12" md="6">
-                    <MudTextField @bind-Value="_formModel.Title" Label="Title" Required="true" Variant="Variant.Outlined" />
+                    <MudTextField @bind-Value="_formTitle" Label="Title" Required="true" RequiredError="Required" Variant="Variant.Outlined" />
                 </MudItem>
+                @if (!_editingId.HasValue)
+                {
+                    <MudItem xs="12" md="3">
+                        <MudSelect T="ClassType" @bind-Value="_formModel.ClassType" Label="Discipline" Variant="Variant.Outlined">
+                            @foreach (var t in Enum.GetValues<ClassType>())
+                            {
+                                <MudSelectItem Value="@t">@t</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                }
                 <MudItem xs="12" md="3">
-                    <MudSelect T="ClassType" @bind-Value="_formModel.ClassType" Label="Discipline" Variant="Variant.Outlined">
-                        @foreach (var t in Enum.GetValues<ClassType>())
-                        {
-                            <MudSelectItem Value="@t">@t</MudSelectItem>
-                        }
-                    </MudSelect>
-                </MudItem>
-                <MudItem xs="12" md="3">
-                    <MudSelect T="DayOfWeek" @bind-Value="_formModel.DayOfWeek" Label="Day" Variant="Variant.Outlined">
+                    <MudSelect T="DayOfWeek" @bind-Value="_formDayOfWeek" Label="Day" Variant="Variant.Outlined">
                         @foreach (var d in Enum.GetValues<DayOfWeek>())
                         {
                             <MudSelectItem Value="@d">@d</MudSelectItem>
@@ -52,19 +57,71 @@
                     <MudTimePicker @bind-Time="_endTime" Label="End Time" Variant="Variant.Outlined" />
                 </MudItem>
                 <MudItem xs="12" md="2">
-                    <MudNumericField T="int" @bind-Value="_formModel.MaxCapacity" Label="Max Capacity" Variant="Variant.Outlined" />
+                    <MudNumericField T="int" @bind-Value="_formMaxCapacity" Label="Max Capacity" Variant="Variant.Outlined" />
                 </MudItem>
                 <MudItem xs="12" md="3">
-                    <MudNumericField T="int" @bind-Value="_formModel.GeneratedWeeksAhead" Label="Generate (weeks)" Variant="Variant.Outlined" />
+                    <MudNumericField T="int" @bind-Value="_formWeeksAhead" Label="Generate (weeks)" Variant="Variant.Outlined" />
                 </MudItem>
+                @if (_editingId.HasValue)
+                {
+                    <MudItem xs="12" md="3" Class="d-flex align-center">
+                        <MudSwitch T="bool" @bind-Value="_formIsActive" Label="Active" Color="Color.Success" />
+                    </MudItem>
+                }
             </MudGrid>
             <MudStack Row="true" Spacing="2" Class="mt-4">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@Save">Create</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           Disabled="_isSaving"
+                           OnClick="@Save">
+                    @if (_isSaving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    @(_editingId.HasValue ? "Save Changes" : "Create")
+                </MudButton>
                 <MudButton Variant="Variant.Outlined" OnClick="@CancelForm">Cancel</MudButton>
             </MudStack>
         </MudForm>
     </MudPaper>
 }
+
+<MudPaper Class="pa-4 mb-4" Elevation="2">
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudTextField @bind-Value="_filterName" Label="Search by name" Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" Variant="Variant.Outlined"
+                          Immediate="true" TextChanged="@(_ => ApplyFilters())" />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudSelect T="ClassType?" Value="_filterDiscipline" Label="Discipline" Variant="Variant.Outlined"
+                       ValueChanged="@(v => { _filterDiscipline = v; ApplyFilters(); })">
+                <MudSelectItem T="ClassType?" Value="@((ClassType?)null)">All Disciplines</MudSelectItem>
+                @foreach (var t in Enum.GetValues<ClassType>())
+                {
+                    <MudSelectItem T="ClassType?" Value="@((ClassType?)t)">@t</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="2">
+            <MudSelect T="DayOfWeek?" Value="_filterDay" Label="Day" Variant="Variant.Outlined"
+                       ValueChanged="@(v => { _filterDay = v; ApplyFilters(); })">
+                <MudSelectItem T="DayOfWeek?" Value="@((DayOfWeek?)null)">All Days</MudSelectItem>
+                @foreach (var d in Enum.GetValues<DayOfWeek>())
+                {
+                    <MudSelectItem T="DayOfWeek?" Value="@((DayOfWeek?)d)">@d</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudSelect T="string" Value="_filterStatus" Label="Status" Variant="Variant.Outlined"
+                       ValueChanged="@(v => { _filterStatus = v; ApplyFilters(); })">
+                <MudSelectItem Value="@("")">All</MudSelectItem>
+                <MudSelectItem Value="@("active")">Active</MudSelectItem>
+                <MudSelectItem Value="@("inactive")">Inactive</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
 
 @if (_isLoading)
 {
@@ -72,7 +129,7 @@
 }
 else
 {
-    <MudTable Items="@_schedules" Hover="true" Elevation="3">
+    <MudTable Items="@_filtered" Hover="true" Elevation="3">
         <HeaderContent>
             <MudTh>Title</MudTh>
             <MudTh>Discipline</MudTh>
@@ -97,10 +154,23 @@ else
                 </MudChip>
             </MudTd>
             <MudTd>
-                <MudButton Size="Size.Small" Variant="Variant.Outlined"
-                           OnClick="@(() => Materialise(context.Id))">
-                    Generate
-                </MudButton>
+                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                               OnClick="@(() => ShowEditForm(context))">
+                        Edit
+                    </MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                               OnClick="@(() => Materialise(context.Id))">
+                        Generate
+                    </MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning"
+                               OnClick="@(() => CleanClasses(context))">
+                        Clean
+                    </MudButton>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error" Size="Size.Small"
+                                   OnClick="@(() => DeleteSchedule(context))" />
+                </MudStack>
             </MudTd>
         </RowTemplate>
         <NoRecordsContent>
@@ -109,16 +179,63 @@ else
     </MudTable>
 }
 
+<MudMessageBox @ref="_cleanBox" Title="Remove Generated Classes" CancelText="Cancel">
+    <MessageContent>
+        This will permanently delete all <strong>@_actionTarget?.GeneratedClassCount</strong> class session(s)
+        generated by <strong>@_actionTarget?.Title</strong>. This cannot be undone.
+    </MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Warning">Remove All</MudButton>
+    </YesButton>
+</MudMessageBox>
+
+<MudMessageBox @ref="_deleteBox" Title="Delete Schedule" CancelText="Cancel">
+    <MessageContent>
+        Delete <strong>@_actionTarget?.Title</strong>?
+        @if (_actionTarget?.GeneratedClassCount > 0)
+        {
+            <text> @_actionTarget.GeneratedClassCount generated class session(s) will be unlinked.</text>
+        }
+        This cannot be undone.
+    </MessageContent>
+    <YesButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error">Delete</MudButton>
+    </YesButton>
+</MudMessageBox>
+
 @code {
 
+    // ── state ──────────────────────────────────────────────────────────────
     private bool _isLoading = true;
+    private bool _isSaving;
     private bool _showForm;
+    private int? _editingId;
     private MudForm? _form;
+    private MudMessageBox? _cleanBox;
+    private MudMessageBox? _deleteBox;
+    private RecurringScheduleDto? _actionTarget;
+    private List<RecurringScheduleDto> _schedules = new();
+    private List<RecurringScheduleDto> _filtered  = new();
+
+    // create-only model (ClassType is immutable after creation)
     private CreateRecurringScheduleDto _formModel = new();
+
+    // shared flat fields used by both create and edit forms
+    private string _formTitle    = string.Empty;
+    private DayOfWeek _formDayOfWeek;
     private TimeSpan? _startTime;
     private TimeSpan? _endTime;
-    private List<RecurringScheduleDto> _schedules = new();
+    private int  _formMaxCapacity;
+    private int  _formWeeksAhead = 12;
+    private bool _formIsActive   = true;
 
+    // ── filter state ───────────────────────────────────────────────────────
+    private string     _filterName       = string.Empty;
+    private ClassType? _filterDiscipline = null;
+    private DayOfWeek? _filterDay        = null;
+    private string     _filterStatus     = string.Empty;
+
+    // ── init ───────────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync() => await LoadSchedules();
 
     private async Task LoadSchedules()
@@ -127,53 +244,172 @@ else
         {
             var result = await Api.GetAsync<List<RecurringScheduleDto>>("api/schedules");
             _schedules = result ?? new();
+            ApplyFilters();
         }
         catch { Snackbar.Add("Failed to load schedules", Severity.Error); }
         finally { _isLoading = false; }
     }
 
-    private void ShowCreateForm()
+    private void ApplyFilters()
     {
-        _formModel = new() { ValidFrom = DateOnly.FromDateTime(DateTime.Today) };
-        _startTime = null;
-        _endTime = null;
-        _showForm = true;
+        _filtered = _schedules
+            .Where(s => string.IsNullOrEmpty(_filterName) ||
+                        s.Title.Contains(_filterName, StringComparison.OrdinalIgnoreCase))
+            .Where(s => _filterDiscipline is null || s.ClassType == _filterDiscipline)
+            .Where(s => _filterDay is null || s.DayOfWeek == _filterDay)
+            .Where(s => _filterStatus switch
+            {
+                "active"   => s.IsActive,
+                "inactive" => !s.IsActive,
+                _          => true
+            })
+            .ToList();
     }
 
-    private void CancelForm() => _showForm = false;
+    // ── form open/close ────────────────────────────────────────────────────
+    private void ShowCreateForm()
+    {
+        _editingId       = null;
+        _formModel       = new() { ValidFrom = DateOnly.FromDateTime(DateTime.Today) };
+        _formTitle       = string.Empty;
+        _formDayOfWeek   = DayOfWeek.Monday;
+        _startTime       = null;
+        _endTime         = null;
+        _formMaxCapacity = 20;
+        _formWeeksAhead  = 12;
+        _formIsActive    = true;
+        _showForm        = true;
+    }
 
+    private void ShowEditForm(RecurringScheduleDto s)
+    {
+        _editingId       = s.Id;
+        _formTitle       = s.Title;
+        _formDayOfWeek   = s.DayOfWeek;
+        _startTime       = s.StartTime.ToTimeSpan();
+        _endTime         = s.EndTime.ToTimeSpan();
+        _formMaxCapacity = s.MaxCapacity;
+        _formWeeksAhead  = s.GeneratedWeeksAhead;
+        _formIsActive    = s.IsActive;
+        _showForm        = true;
+    }
+
+    private void CancelForm()
+    {
+        _showForm  = false;
+        _editingId = null;
+    }
+
+    // ── save (create or update) ────────────────────────────────────────────
     private async Task Save()
     {
         if (_form is null) return;
         await _form.ValidateAsync();
         if (!_form.IsValid) return;
 
-        if (_startTime.HasValue)
-            _formModel.StartTime = TimeOnly.FromTimeSpan(_startTime.Value);
-        if (_endTime.HasValue)
-            _formModel.EndTime = TimeOnly.FromTimeSpan(_endTime.Value);
+        _isSaving = true;
+        try
+        {
+            if (_editingId.HasValue) await SaveEdit(_editingId.Value);
+            else                     await SaveCreate();
+        }
+        finally { _isSaving = false; }
+    }
+
+    private async Task SaveCreate()
+    {
+        _formModel.Title              = _formTitle;
+        _formModel.DayOfWeek          = _formDayOfWeek;
+        _formModel.MaxCapacity        = _formMaxCapacity;
+        _formModel.GeneratedWeeksAhead = _formWeeksAhead;
+        if (_startTime.HasValue) _formModel.StartTime = TimeOnly.FromTimeSpan(_startTime.Value);
+        if (_endTime.HasValue)   _formModel.EndTime   = TimeOnly.FromTimeSpan(_endTime.Value);
 
         var result = await Api.PostAsync<RecurringScheduleDto>("api/schedules", _formModel);
         if (result is not null)
         {
             _schedules.Add(result);
+            ApplyFilters();
             _showForm = false;
-            Snackbar.Add("Schedule created and classes generated", Severity.Success);
+            Snackbar.Add("Schedule created and classes generated.", Severity.Success);
         }
         else
-            Snackbar.Add("Failed to create schedule", Severity.Error);
+            Snackbar.Add("Failed to create schedule.", Severity.Error);
     }
 
-    private async Task Materialise(int id)
+    private async Task SaveEdit(int id)
     {
-        var result = await Api.PostAsync<object>($"api/schedules/{id}/materialise", new { });
+        var dto = new UpdateRecurringScheduleDto
+        {
+            Title               = _formTitle,
+            DayOfWeek           = _formDayOfWeek,
+            MaxCapacity         = _formMaxCapacity,
+            GeneratedWeeksAhead = _formWeeksAhead,
+            IsActive            = _formIsActive,
+            StartTime           = _startTime.HasValue ? TimeOnly.FromTimeSpan(_startTime.Value) : default,
+            EndTime             = _endTime.HasValue   ? TimeOnly.FromTimeSpan(_endTime.Value)   : default
+        };
+
+        var result = await Api.PutAsync<RecurringScheduleDto>($"api/schedules/{id}", dto);
         if (result is not null)
         {
-            await LoadSchedules();
-            Snackbar.Add("Classes generated successfully", Severity.Success);
+            var idx = _schedules.FindIndex(s => s.Id == id);
+            if (idx >= 0) _schedules[idx] = result;
+            ApplyFilters();
+            _showForm  = false;
+            _editingId = null;
+            Snackbar.Add("Schedule updated.", Severity.Success);
         }
         else
-            Snackbar.Add("Failed to generate classes", Severity.Error);
+            Snackbar.Add("Failed to update schedule.", Severity.Error);
+    }
+
+    // ── generate ───────────────────────────────────────────────────────────
+    private async Task Materialise(int id)
+    {
+        await Api.PostAsync<object>($"api/schedules/{id}/materialise", new { });
+        await LoadSchedules();
+        Snackbar.Add("Classes generated successfully.", Severity.Success);
+    }
+
+    // ── clean ──────────────────────────────────────────────────────────────
+    private async Task CleanClasses(RecurringScheduleDto s)
+    {
+        if (s.GeneratedClassCount == 0)
+        {
+            Snackbar.Add("No generated classes to remove.", Severity.Info);
+            return;
+        }
+
+        _actionTarget = s;
+        bool? confirmed = await _cleanBox!.ShowAsync();
+        if (confirmed != true) return;
+
+        try
+        {
+            await Api.DeleteAsync($"api/schedules/{s.Id}/classes");
+            await LoadSchedules();
+            Snackbar.Add($"Removed all generated classes for \"{s.Title}\".", Severity.Success);
+        }
+        catch { Snackbar.Add("Failed to remove generated classes.", Severity.Error); }
+    }
+
+    // ── delete schedule ────────────────────────────────────────────────────
+    private async Task DeleteSchedule(RecurringScheduleDto s)
+    {
+        _actionTarget = s;
+        bool? confirmed = await _deleteBox!.ShowAsync();
+        if (confirmed != true) return;
+
+        try
+        {
+            await Api.DeleteAsync($"api/schedules/{s.Id}/classes");
+            await Api.DeleteAsync($"api/schedules/{s.Id}");
+            _schedules.Remove(s);
+            ApplyFilters();
+            Snackbar.Add($"Schedule \"{s.Title}\" and all its classes deleted.", Severity.Success);
+        }
+        catch { Snackbar.Add("Failed to delete schedule.", Severity.Error); }
     }
 
 }

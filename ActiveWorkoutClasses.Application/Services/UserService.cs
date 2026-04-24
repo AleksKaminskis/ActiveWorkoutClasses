@@ -82,7 +82,7 @@ namespace ActiveWorkoutClasses.Application.Services
 
         public async Task<UserListDto> GetUsersPagedAsync(int page, int pageSize, UserRole? role = null)
         {
-            var query = _context.Users.Where(u => u.IsActive);
+            var query = _context.Users.AsQueryable();
 
             if (role.HasValue)
             {

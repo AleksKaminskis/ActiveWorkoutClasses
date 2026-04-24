@@ -1,0 +1,573 @@
+@page "/admin/users/{Id:guid}"
+@attribute [Authorize(Roles = "Admin")]
+
+@inject IApiClient Api
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>User Detail — Admin</PageTitle>
+
+@if (_isLoading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_user is null)
+{
+    <MudAlert Severity="Severity.Error">User not found.</MudAlert>
+}
+else
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-6" Wrap="Wrap.Wrap">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                           OnClick="@(() => Nav.NavigateTo("/admin/users"))" />
+            <MudText Typo="Typo.h4" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;">
+                @_user.FullName
+            </MudText>
+            <MudChip T="string" Size="Size.Medium" Color="@RoleColor(_user.Role)">
+                @_user.RoleName
+            </MudChip>
+            <MudChip T="string" Size="Size.Small"
+                     Color="@(_user.IsActive ? Color.Success : Color.Error)"
+                     Icon="@(_user.IsActive ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel)">
+                @(_user.IsActive ? "Active" : "Inactive")
+            </MudChip>
+        </MudStack>
+        <MudStack Row="true" Spacing="2">
+            @if (!_isEditing)
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Edit"
+                           OnClick="@(() => StartEdit())">
+                    Edit
+                </MudButton>
+            }
+            @if (_user.IsActive)
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning"
+                           StartIcon="@Icons.Material.Filled.PersonOff"
+                           Disabled="_isActioning"
+                           OnClick="@DeactivateUser">
+                    Deactivate
+                </MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Success"
+                           StartIcon="@Icons.Material.Filled.PersonAdd"
+                           Disabled="_isActioning"
+                           OnClick="@ActivateUser">
+                    Activate
+                </MudButton>
+            }
+        </MudStack>
+    </MudStack>
+
+    @if (_isEditing)
+    {
+        <MudPaper Class="pa-6 mb-6" Elevation="3">
+            <MudText Typo="Typo.h6" Class="mb-4"
+                     Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;">
+                Edit Profile
+            </MudText>
+            <MudForm @ref="_form">
+                <MudGrid>
+                    <MudItem xs="12" md="4">
+                        <MudTextField @bind-Value="_edit.FirstName"
+                                      Label="First Name"
+                                      Required="true"
+                                      RequiredError="Required"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudTextField @bind-Value="_edit.LastName"
+                                      Label="Last Name"
+                                      Required="true"
+                                      RequiredError="Required"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudTextField @bind-Value="_edit.PhoneNumber"
+                                      Label="Phone Number"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" md="3" Class="d-flex align-center">
+                        <MudSwitch T="bool" @bind-Value="_edit.IsActive"
+                                   Label="Active"
+                                   Color="Color.Success" />
+                    </MudItem>
+
+                    @if (_user.Role == UserRole.Student)
+                    {
+                        <MudItem xs="12">
+                            <MudDivider Class="my-2" />
+                            <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-3">
+                                Student Details
+                            </MudText>
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudDatePicker @bind-Date="_membershipEndDate"
+                                           Label="Membership End Date"
+                                           Variant="Variant.Outlined"
+                                           Clearable="true" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudTextField @bind-Value="_edit.EmergencyContact"
+                                          Label="Emergency Contact"
+                                          Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <MudTextField @bind-Value="_edit.MedicalNotes"
+                                          Label="Medical Notes"
+                                          Variant="Variant.Outlined" />
+                        </MudItem>
+                    }
+
+                    @if (_user.Role == UserRole.Instructor)
+                    {
+                        <MudItem xs="12">
+                            <MudDivider Class="my-2" />
+                            <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-3">
+                                Instructor Details
+                            </MudText>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudTextField @bind-Value="_edit.Specialization"
+                                          Label="Specialization"
+                                          Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudNumericField T="int?" @bind-Value="_editYearsExperience"
+                                             Label="Years of Experience"
+                                             Min="0"
+                                             Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="3">
+                            <MudNumericField T="decimal?" @bind-Value="_editHourlyRate"
+                                             Label="Hourly Rate (€)"
+                                             Min="0"
+                                             Format="F2"
+                                             Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudTextField @bind-Value="_edit.Certifications"
+                                          Label="Certifications"
+                                          Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_edit.Bio"
+                                          Label="Bio"
+                                          Lines="3"
+                                          Variant="Variant.Outlined" />
+                        </MudItem>
+                    }
+                </MudGrid>
+
+                <MudStack Row="true" Spacing="2" Class="mt-4">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               Disabled="_isSaving"
+                               OnClick="SaveEdit">
+                        @if (_isSaving)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        Save Changes
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               OnClick="@(() => _isEditing = false)">
+                        Cancel
+                    </MudButton>
+                </MudStack>
+            </MudForm>
+        </MudPaper>
+    }
+    else
+    {
+        <MudGrid Class="mb-6">
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-5" Elevation="3" Style="height:100%;">
+                    <MudText Typo="Typo.subtitle1" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;" Class="mb-3">
+                        Contact Information
+                    </MudText>
+                    <MudStack Spacing="2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Small" Color="Color.Secondary" />
+                            <MudText Typo="Typo.body2">@_user.Email</MudText>
+                        </MudStack>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.Phone" Size="Size.Small" Color="Color.Secondary" />
+                            <MudText Typo="Typo.body2">
+                                @(string.IsNullOrWhiteSpace(_user.PhoneNumber) ? "—" : _user.PhoneNumber)
+                            </MudText>
+                        </MudStack>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Color="Color.Secondary" />
+                            <MudText Typo="Typo.body2">Joined @_user.CreatedAt.ToString("dd MMM yyyy")</MudText>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                @if (_user.Role == UserRole.Student)
+                {
+                    <MudPaper Class="pa-5" Elevation="3" Style="height:100%;">
+                        <MudText Typo="Typo.subtitle1" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;" Class="mb-3">
+                            Student Details
+                        </MudText>
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Material.Filled.Badge" Size="Size.Small" Color="Color.Secondary" />
+                                <MudText Typo="Typo.body2">
+                                    @(_user.StudentNumber ?? "—")
+                                </MudText>
+                            </MudStack>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Material.Filled.CardMembership" Size="Size.Small" Color="Color.Secondary" />
+                                <MudText Typo="Typo.body2">
+                                    Membership:
+                                    @if (_user.MembershipStartDate.HasValue)
+                                    {
+                                        @_user.MembershipStartDate.Value.ToString("dd MMM yyyy")
+                                        @(" – ")
+                                        @(_user.MembershipEndDate.HasValue
+                                            ? _user.MembershipEndDate.Value.ToString("dd MMM yyyy")
+                                            : "ongoing")
+                                    }
+                                    else
+                                    {
+                                        <text>—</text>
+                                    }
+                                </MudText>
+                                @if (_user.HasActiveMembership == true)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Success">Active</MudChip>
+                                }
+                                else if (_user.HasActiveMembership == false)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Error">Expired</MudChip>
+                                }
+                            </MudStack>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Material.Filled.ContactPhone" Size="Size.Small" Color="Color.Secondary" />
+                                <MudText Typo="Typo.body2">
+                                    Emergency: @(string.IsNullOrWhiteSpace(_user.EmergencyContact) ? "—" : _user.EmergencyContact)
+                                </MudText>
+                            </MudStack>
+                            @if (!string.IsNullOrWhiteSpace(_user.MedicalNotes))
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                                    <MudIcon Icon="@Icons.Material.Filled.MedicalServices" Size="Size.Small" Color="Color.Warning" Style="margin-top:2px;" />
+                                    <MudText Typo="Typo.body2">@_user.MedicalNotes</MudText>
+                                </MudStack>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                }
+                else if (_user.Role == UserRole.Instructor)
+                {
+                    <MudPaper Class="pa-5" Elevation="3" Style="height:100%;">
+                        <MudText Typo="Typo.subtitle1" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;" Class="mb-3">
+                            Instructor Details
+                        </MudText>
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Material.Filled.FitnessCenter" Size="Size.Small" Color="Color.Secondary" />
+                                <MudText Typo="Typo.body2">
+                                    @(string.IsNullOrWhiteSpace(_user.Specialization) ? "—" : _user.Specialization)
+                                </MudText>
+                            </MudStack>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Material.Filled.WorkHistory" Size="Size.Small" Color="Color.Secondary" />
+                                <MudText Typo="Typo.body2">
+                                    @(_user.YearsOfExperience.HasValue ? $"{_user.YearsOfExperience} years experience" : "—")
+                                </MudText>
+                            </MudStack>
+                            @if (!string.IsNullOrWhiteSpace(_user.Certifications))
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
+                                    <MudIcon Icon="@Icons.Material.Filled.VerifiedUser" Size="Size.Small" Color="Color.Secondary" Style="margin-top:2px;" />
+                                    <MudText Typo="Typo.body2">@_user.Certifications</MudText>
+                                </MudStack>
+                            }
+                            @if (_user.HourlyRate.HasValue)
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudIcon Icon="@Icons.Material.Filled.Euro" Size="Size.Small" Color="Color.Secondary" />
+                                    <MudText Typo="Typo.body2">€@_user.HourlyRate.Value.ToString("F2") / hr</MudText>
+                                </MudStack>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(_user.Bio))
+                            {
+                                <MudDivider Class="my-1" />
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">@_user.Bio</MudText>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                }
+                else
+                {
+                    <MudPaper Class="pa-5" Elevation="3" Style="height:100%;">
+                        <MudText Typo="Typo.subtitle1" Style="font-family:'Barlow Condensed',sans-serif;font-weight:700;" Class="mb-3">
+                            Admin Account
+                        </MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Full administrative access to the system.
+                        </MudText>
+                    </MudPaper>
+                }
+            </MudItem>
+        </MudGrid>
+    }
+
+    @if (_user.Role == UserRole.Student)
+    {
+        <MudTabs Elevation="3" Rounded="true" ApplyEffectsToContainer="true" Class="mt-2">
+            <MudTabPanel Text="Registrations" Icon="@Icons.Material.Filled.List">
+                @if (_registrationsLoading)
+                {
+                    <MudProgressLinear Indeterminate="true" Class="ma-4" />
+                }
+                else if (_registrations.Count == 0)
+                {
+                    <MudText Class="pa-4" Color="Color.Secondary">No registrations found.</MudText>
+                }
+                else
+                {
+                    <MudTable Items="@_registrations" Hover="true" Dense="true" Class="pa-2">
+                        <HeaderContent>
+                            <MudTh>Class</MudTh>
+                            <MudTh>Date</MudTh>
+                            <MudTh>Registered</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh>Attended</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.ClassName</MudTd>
+                            <MudTd>@context.ClassStartTime.ToString("dd MMM yyyy HH:mm")</MudTd>
+                            <MudTd>@context.RegistrationDate.ToString("dd MMM yyyy")</MudTd>
+                            <MudTd>
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@RegistrationStatusColor(context.Status)">
+                                    @context.StatusName
+                                </MudChip>
+                            </MudTd>
+                            <MudTd>
+                                @if (context.HasAttendance && context.Attendance?.IsPresent == true)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                             Color="Color.Success" Size="Size.Small" />
+                                }
+                                else if (context.HasAttendance)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Cancel"
+                                             Color="Color.Error" Size="Size.Small" />
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">—</MudText>
+                                }
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudTabPanel>
+
+            <MudTabPanel Text="Progress" Icon="@Icons.Material.Filled.TrendingUp">
+                @if (_progressLoading)
+                {
+                    <MudProgressLinear Indeterminate="true" Class="ma-4" />
+                }
+                else if (_progress is null || _progress.AllRecords.Count == 0)
+                {
+                    <MudText Class="pa-4" Color="Color.Secondary">No progress records found.</MudText>
+                }
+                else
+                {
+                    <MudTable Items="@_progress.AllRecords" Hover="true" Dense="true" Class="pa-2">
+                        <HeaderContent>
+                            <MudTh>Discipline</MudTh>
+                            <MudTh>Skill Level</MudTh>
+                            <MudTh>Promotion Date</MudTh>
+                            <MudTh>Recorded By</MudTh>
+                            <MudTh>Notes</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.DisciplineName</MudTd>
+                            <MudTd>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary">
+                                    @context.SkillLevel
+                                </MudChip>
+                            </MudTd>
+                            <MudTd>@context.PromotionDate.ToString("dd MMM yyyy")</MudTd>
+                            <MudTd>@(context.RecordedByInstructor ?? "—")</MudTd>
+                            <MudTd>@(string.IsNullOrWhiteSpace(context.Notes) ? "—" : context.Notes)</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudTabPanel>
+        </MudTabs>
+    }
+}
+
+@code {
+
+    [Parameter] public Guid Id { get; set; }
+
+    private UserDetailDto? _user;
+    private bool _isLoading = true;
+    private bool _isEditing;
+    private bool _isSaving;
+    private bool _isActioning;
+
+    private UpdateUserDto _edit = new();
+    private MudForm? _form;
+    private DateTime? _membershipEndDate;
+    private int? _editYearsExperience;
+    private decimal? _editHourlyRate;
+
+    private List<ClassRegistrationDto> _registrations = new();
+    private bool _registrationsLoading;
+    private StudentProgressSummaryDto? _progress;
+    private bool _progressLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _user = await Api.GetAsync<UserDetailDto>($"api/users/{Id}");
+            if (_user is null)
+            {
+                _isLoading = false;
+                return;
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Failed to load user.", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+
+        if (_user?.Role == UserRole.Student)
+            await Task.WhenAll(LoadRegistrations(), LoadProgress());
+    }
+
+    private async Task LoadRegistrations()
+    {
+        _registrationsLoading = true;
+        try
+        {
+            _registrations = await Api.GetAsync<List<ClassRegistrationDto>>(
+                $"api/registrations/student/{Id}") ?? new();
+        }
+        catch { }
+        finally { _registrationsLoading = false; }
+    }
+
+    private async Task LoadProgress()
+    {
+        _progressLoading = true;
+        try
+        {
+            _progress = await Api.GetAsync<StudentProgressSummaryDto>(
+                $"api/progress/student/{Id}");
+        }
+        catch { }
+        finally { _progressLoading = false; }
+    }
+
+    private void StartEdit()
+    {
+        if (_user is null) return;
+        _edit = new UpdateUserDto
+        {
+            FirstName       = _user.FirstName,
+            LastName        = _user.LastName,
+            PhoneNumber     = _user.PhoneNumber,
+            IsActive        = _user.IsActive,
+            EmergencyContact = _user.EmergencyContact,
+            MedicalNotes    = _user.MedicalNotes,
+            Specialization  = _user.Specialization,
+            Bio             = _user.Bio,
+            Certifications  = _user.Certifications
+        };
+        _membershipEndDate   = _user.MembershipEndDate;
+        _editYearsExperience = _user.YearsOfExperience;
+        _editHourlyRate      = _user.HourlyRate;
+        _isEditing = true;
+    }
+
+    private async Task SaveEdit()
+    {
+        if (_form is null) return;
+        await _form.ValidateAsync();
+        if (!_form.IsValid) return;
+
+        _edit.MembershipEndDate  = _membershipEndDate;
+        _edit.YearsOfExperience  = _editYearsExperience;
+        _edit.HourlyRate         = _editHourlyRate;
+
+        _isSaving = true;
+        try
+        {
+            var updated = await Api.PutAsync<UserDetailDto>($"api/users/{Id}", _edit);
+            if (updated is not null)
+            {
+                _user = updated;
+                _isEditing = false;
+                Snackbar.Add("User updated successfully.", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to save: {ex.Message}", Severity.Error);
+        }
+        finally { _isSaving = false; }
+    }
+
+    private async Task DeactivateUser()
+    {
+        _isActioning = true;
+        try
+        {
+            await Api.PostAsync<object>($"api/users/{Id}/deactivate", new { });
+            _user!.IsActive = false;
+            Snackbar.Add("User deactivated.", Severity.Info);
+        }
+        catch { Snackbar.Add("Failed to deactivate user.", Severity.Error); }
+        finally { _isActioning = false; }
+    }
+
+    private async Task ActivateUser()
+    {
+        _isActioning = true;
+        try
+        {
+            await Api.PostAsync<object>($"api/users/{Id}/activate", new { });
+            _user!.IsActive = true;
+            Snackbar.Add("User activated.", Severity.Success);
+        }
+        catch { Snackbar.Add("Failed to activate user.", Severity.Error); }
+        finally { _isActioning = false; }
+    }
+
+    private static Color RoleColor(UserRole role) => role switch
+    {
+        UserRole.Admin      => Color.Error,
+        UserRole.Instructor => Color.Primary,
+        UserRole.Student    => Color.Success,
+        _                   => Color.Default
+    };
+
+    private static Color RegistrationStatusColor(RegistrationStatus status) => status switch
+    {
+        RegistrationStatus.Registered => Color.Success,
+        RegistrationStatus.Cancelled  => Color.Error,
+        RegistrationStatus.NoShow     => Color.Warning,
+        RegistrationStatus.Waitlisted => Color.Info,
+        _                             => Color.Default
+    };
+}

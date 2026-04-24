@@ -46,6 +46,8 @@ namespace ActiveWorkoutClasses.Web.Services
             await EnsureTokenAttachedAsync();
             var response = await _http.PostAsJsonAsync(url, body, _jsonOptions);
             response.EnsureSuccessStatusCode();
+            if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+                return default;
             return await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
         }
 

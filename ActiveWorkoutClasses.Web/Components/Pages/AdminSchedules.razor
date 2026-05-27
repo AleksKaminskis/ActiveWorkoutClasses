@@ -155,20 +155,24 @@ else
             </MudTd>
             <MudTd>
                 <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
-                               OnClick="@(() => ShowEditForm(context))">
-                        Edit
-                    </MudButton>
-                    <MudButton Size="Size.Small" Variant="Variant.Outlined"
-                               OnClick="@(() => Materialise(context.Id))">
-                        Generate
-                    </MudButton>
-                    <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning"
-                               OnClick="@(() => CleanClasses(context))">
-                        Clean
-                    </MudButton>
+                    <MudIconButton Icon="@Icons.Material.Filled.DoneAll"
+                                    title="Generate Classes"
+                                    Color="Color.Success"
+                                    Size="Size.Small"
+                                    OnClick="@(() => Materialise(context.Id))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.RemoveDone"
+                                    title="Clean Generated Classes"
+                                    Size="Size.Small"
+                                    OnClick="@(() => CleanClasses(context))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                    title="Edit"
+                                    Color="Color.Primary"
+                                    Size="Size.Small"
+                                    OnClick="@(() => ShowEditForm(context))" />
                     <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                   Color="Color.Error" Size="Size.Small"
+                                   title="Delete"
+                                   Color="Color.Error"
+                                   Size="Size.Small"
                                    OnClick="@(() => DeleteSchedule(context))" />
                 </MudStack>
             </MudTd>

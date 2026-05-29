@@ -144,7 +144,7 @@ namespace ActiveWorkoutClasses.Application.Services
         {
             var registrations = await _context.ClassRegistrations
                 .Include(cr => cr.Student)
-                .Include(cr => cr.WorkoutClass)
+                .Include(cr => cr.WorkoutClass).ThenInclude(wc => wc.Location)
                 .Include(cr => cr.Attendance)
                 .Where(cr => cr.StudentId == studentId)
                 .OrderByDescending(cr => cr.WorkoutClass.StartDateTime)
@@ -216,7 +216,7 @@ namespace ActiveWorkoutClasses.Application.Services
             var now = DateTime.UtcNow;
             var registrations = await _context.ClassRegistrations
                 .Include(cr => cr.Student)
-                .Include(cr => cr.WorkoutClass)
+                .Include(cr => cr.WorkoutClass).ThenInclude(wc => wc.Location)
                 .Include(cr => cr.Attendance)
                 .Where(cr =>
                     cr.StudentId == studentId &&
@@ -233,7 +233,7 @@ namespace ActiveWorkoutClasses.Application.Services
             var today = DateTime.UtcNow.Date;
             var registrations = await _context.ClassRegistrations
                 .Include(cr => cr.Student)
-                .Include(cr => cr.WorkoutClass)
+                .Include(cr => cr.WorkoutClass).ThenInclude(wc => wc.Location)
                 .Include(cr => cr.Attendance)
                 .Where(cr =>
                     cr.StudentId == studentId &&
@@ -258,6 +258,8 @@ namespace ActiveWorkoutClasses.Application.Services
                 WorkoutClassId = registration.WorkoutClassId,
                 ClassName = registration.WorkoutClass.Title,
                 ClassStartTime = registration.WorkoutClass.StartDateTime,
+                ClassEndTime = registration.WorkoutClass.EndDateTime,
+                ClassLocation = registration.WorkoutClass.Location?.Name ?? registration.WorkoutClass.LocationName,
                 RegistrationDate = registration.RegistrationDate,
                 Status = registration.Status,
                 StatusName = registration.Status.ToString(),

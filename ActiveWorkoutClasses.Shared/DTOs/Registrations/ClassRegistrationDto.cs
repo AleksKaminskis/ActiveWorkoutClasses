@@ -15,6 +15,8 @@ namespace ActiveWorkoutClasses.Application.DTOs.Registrations
         public Guid WorkoutClassId { get; set; }
         public string ClassName { get; set; } = string.Empty;
         public DateTime ClassStartTime { get; set; }
+        public DateTime ClassEndTime { get; set; }
+        public string ClassLocation { get; set; } = string.Empty;
         public DateTime RegistrationDate { get; set; }
         public RegistrationStatus Status { get; set; }
         public string StatusName { get; set; } = string.Empty;

@@ -1,4 +1,5 @@
-﻿using ActiveWorkoutClasses.Application.DTOs.Registrations;
+﻿using System.Security.Claims;
+using ActiveWorkoutClasses.Application.DTOs.Registrations;
 using ActiveWorkoutClasses.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -45,6 +46,22 @@ namespace ActiveWorkoutClasses.ApiService.Controllers
                 nameof(GetRegistration),
                 new { id = result.Registration!.Id },
                 result);
+        }
+
+        /// <summary>
+        /// Get all registrations for the currently authenticated student
+        /// </summary>
+        [HttpGet("my")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<ClassRegistrationDto>>> GetMyRegistrations()
+        {
+            var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                      ?? User.FindFirstValue("sub");
+            if (!Guid.TryParse(sub, out var studentId))
+                return Unauthorized();
+
+            var registrations = await _registrationService.GetStudentRegistrationsAsync(studentId);
+            return Ok(registrations);
         }
 
         /// <summary>

@@ -1,4 +1,4 @@
-namespace ActiveWorkoutClasses.Application.DTOs.Auth
+        namespace ActiveWorkoutClasses.Application.DTOs.Auth
 {
     public class ChangePasswordDto
     {

@@ -109,8 +109,14 @@ else
             var all = await Api.GetAsync<List<ClassRegistrationDto>>("api/registrations/my");
             if (all is not null)
             {
-                _upcoming = all.Where(r => r.ClassStartTime >= DateTime.UtcNow).OrderBy(r => r.ClassStartTime).ToList();
-                _past = all.Where(r => r.ClassStartTime < DateTime.UtcNow).OrderByDescending(r => r.ClassStartTime).ToList();
+                _upcoming = all
+                    .Where(r => r.ClassStartTime >= DateTime.UtcNow && r.Status != RegistrationStatus.Cancelled)
+                    .OrderBy(r => r.ClassStartTime)
+                    .ToList();
+                _past = all
+                    .Where(r => r.ClassStartTime < DateTime.UtcNow && r.Status != RegistrationStatus.Cancelled)
+                    .OrderByDescending(r => r.ClassStartTime)
+                    .ToList();
             }
         }
         catch { Snackbar.Add("Failed to load registrations", Severity.Error); }

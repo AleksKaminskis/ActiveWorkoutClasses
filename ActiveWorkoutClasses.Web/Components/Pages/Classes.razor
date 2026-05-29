@@ -151,11 +151,22 @@ else
                     <MudCardActions>
                         <AuthorizeView Roles="Student">
                             <Authorized>
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-                                           Disabled="@cls.IsFull"
-                                           Href="/my-classes">
-                                    @(cls.IsFull ? "Full" : "Register")
-                                </MudButton>
+                                @if (_registeredClassIds.Contains(cls.Id))
+                                {
+                                    <MudButton Variant="Variant.Filled" Color="Color.Default"
+                                               Size="Size.Small" Disabled="true">
+                                        Registered
+                                    </MudButton>
+                                }
+                                else
+                                {
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                               Size="Size.Small"
+                                               Disabled="@(cls.IsFull || _isRegistering)"
+                                               OnClick="@(() => RegisterForClass(cls))">
+                                        @(cls.IsFull ? "Full" : "Register")
+                                    </MudButton>
+                                }
                             </Authorized>
                         </AuthorizeView>
 
@@ -200,7 +211,9 @@ else
 @code {
 
     private List<WorkoutClassDto> _classes = new();
+    private HashSet<Guid> _registeredClassIds = new();
     private bool _isLoading = true;
+    private bool _isRegistering;
 
     private string _search = string.Empty;
     private ClassType? _typeFilter;
@@ -228,6 +241,16 @@ else
             var isStaff = AuthState.UserRole is "Admin" or "Instructor";
             var url = isStaff ? "api/classes?includeInactive=true" : "api/classes";
             _classes = await Api.GetAsync<List<WorkoutClassDto>>(url) ?? new();
+
+            if (AuthState.UserRole == "Student")
+            {
+                var myRegs = await Api.GetAsync<List<ClassRegistrationDto>>("api/registrations/my");
+                if (myRegs is not null)
+                    _registeredClassIds = myRegs
+                        .Where(r => r.Status == RegistrationStatus.Registered)
+                        .Select(r => r.WorkoutClassId)
+                        .ToHashSet();
+            }
         }
         catch (Exception ex)
         {
@@ -244,6 +267,39 @@ else
         _search = string.Empty;
         _typeFilter = null;
         _availFilter = "All";
+    }
+
+    private async Task RegisterForClass(WorkoutClassDto cls)
+    {
+        if (!Guid.TryParse(AuthState.UserId, out var studentId)) return;
+
+        _isRegistering = true;
+        try
+        {
+            var result = await Api.PostAsync<RegistrationResultDto>("api/registrations",
+                new RegisterForClassDto { StudentId = studentId, WorkoutClassId = cls.Id });
+
+            if (result?.Success == true)
+            {
+                _registeredClassIds.Add(cls.Id);
+                cls.CurrentEnrollment++;
+                cls.AvailableSpots--;
+                cls.IsFull = cls.AvailableSpots <= 0;
+                Snackbar.Add($"Registered for {cls.Title}!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(result?.Message ?? "Registration failed.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Registration failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isRegistering = false;
+        }
     }
 
     private async Task ConfirmDelete(WorkoutClassDto cls)

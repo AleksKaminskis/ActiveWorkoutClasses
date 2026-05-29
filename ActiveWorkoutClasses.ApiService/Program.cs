@@ -136,22 +136,14 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowBlazorApp", policy =>
     {
-        if (builder.Environment.IsDevelopment())
-        {
-            policy.SetIsOriginAllowed(origin => new Uri(origin).Host == "localhost")
-                  .AllowAnyHeader()
-                  .AllowAnyMethod()
-                  .AllowCredentials();
-        }
-        else
-        {
-            var origins = builder.Configuration["AllowedOrigins"]?.Split(",")
-                ?? [];
-            policy.WithOrigins(origins)
-                  .AllowAnyHeader()
-                  .AllowAnyMethod()
-                  .AllowCredentials();
-        }
+        var allowedOrigins = builder.Configuration["AllowedOrigins"]?.Split(",") ?? [];
+
+        policy.SetIsOriginAllowed(origin =>
+                new Uri(origin).Host == "localhost" ||
+                allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
